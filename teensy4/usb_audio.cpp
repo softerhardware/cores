@@ -65,6 +65,7 @@ uint32_t feedback_accumulator;
 
 volatile uint32_t usb_audio_underrun_count;
 volatile uint32_t usb_audio_overrun_count;
+volatile uint16_t usb_audio_block_count;
 
 
 static void rx_event(transfer_t *t)
@@ -94,7 +95,12 @@ void usb_audio_configure(void)
 	printf("usb_audio_configure\n");
 	usb_audio_underrun_count = 0;
 	usb_audio_overrun_count = 0;
+	usb_audio_block_count = 1000; // Block synchronization for 1000 frames at start
+#ifdef USB_AUDIO_48KHZ
+	feedback_accumulator = 805306368; // 48 * 2^24
+#else
 	feedback_accumulator = 739875226; // 44.1 * 2^24
+#endif
 	if (usb_high_speed) {
 		usb_audio_sync_nbytes = 4;
 		usb_audio_sync_rshift = 8;
@@ -164,7 +170,47 @@ void usb_audio_receive_callback(unsigned int len)
 	audio_block_t *left, *right;
 	const uint32_t *data;
 
-	AudioInputUSB::receive_flag = 1;
+// USB_AUDIO_48KHZ
+#if 0
+	static uint32_t lenmin = 1000;
+	static uint32_t lenmax = 0;
+	static uint32_t lencount = 0;
+	static uint32_t feedback_max = 0;
+	static uint32_t feedback_min = 905306368;
+	static uint32_t last_overrun = 0;
+	static uint32_t last_underrun = 0;
+
+	if (len > lenmax) lenmax = len;
+	if (len < lenmin) lenmin = len;
+	if (feedback_accumulator > feedback_max) feedback_max = feedback_accumulator;
+	if (feedback_accumulator < feedback_min) feedback_min = feedback_accumulator;
+
+	if (lencount == 1000) {
+		Serial.print(lenmin);
+		Serial.print(" ");
+		Serial.print(lenmax);
+		Serial.print(" ");
+		Serial.print(feedback_min);
+		Serial.print(" ");
+		Serial.print(feedback_max);
+		Serial.print(" ");
+		Serial.print(usb_audio_overrun_count-last_overrun);
+		Serial.print(" ");
+		Serial.println(usb_audio_underrun_count-last_underrun);
+		lenmin = 1000;
+		lenmax = 0;
+		lencount = 0;
+		feedback_max = 0;
+		feedback_min = 905306368;
+		last_overrun = usb_audio_overrun_count;
+		last_underrun = usb_audio_underrun_count;
+	} else {
+		lencount += 1;
+	}
+#endif
+
+	if (usb_audio_block_count == 0) AudioInputUSB::receive_flag = 1;
+	else usb_audio_block_count--;
 	len >>= 2; // 1 sample = 4 bytes: 2 left, 2 right
 	data = (const uint32_t *)rx_buffer;
 
@@ -196,7 +242,9 @@ void usb_audio_receive_callback(unsigned int len)
 				AudioInputUSB::incoming_count = count + avail;
 				if (len > 0) {
 					usb_audio_overrun_count++;
-					printf("!");
+					//Serial.print("U");
+					//Serial.println(len);
+					//printf("!");
 					//serial_phex(len);
 				}
 				return;
@@ -245,7 +293,7 @@ void AudioInputUSB::update(void)
 	uint8_t f = receive_flag;
 	receive_flag = 0;
 	__enable_irq();
-	if (f) {
+	if (f && left && right) {
 		int diff = AUDIO_BLOCK_SAMPLES/2 - (int)c;
 		feedback_accumulator += diff * 1;
 		//uint32_t feedback = (feedback_accumulator >> 8) + diff * 100;
@@ -257,7 +305,12 @@ void AudioInputUSB::update(void)
 	//serial_print(".");
 	if (!left || !right) {
 		usb_audio_underrun_count++;
+		//Serial.print("O");
+		//Serial.println(incoming_count);
 		//printf("#"); // buffer underrun - PC sending too slow
+		// USB_AUDIO_48KHZ For some reason there are many underruns during the 1 second of powerup
+		// It seems as if the PC is either sending too short packets, or too infrequent packets at first
+		// The line below causes the feedback_accumulator to be way off
 		if (f) feedback_accumulator += 3500;
 	}
 	if (left) {
@@ -389,16 +442,22 @@ void AudioOutputUSB::update(void)
 // no data to transmit
 unsigned int usb_audio_transmit_callback(void)
 {
-	static uint32_t count=5;
+
 	uint32_t avail, num, target, offset, len=0;
 	audio_block_t *left, *right;
 
+#ifdef USB_AUDIO_48KHZ
+	target = 48;
+#else
+	static uint32_t count=5;
 	if (++count < 10) {   // TODO: dynamic adjust to match USB rate
 		target = 44;
 	} else {
 		count = 0;
 		target = 45;
 	}
+#endif
+
 	while (len < target) {
 		num = target - len;
 		left = AudioOutputUSB::left_1st;

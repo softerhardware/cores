@@ -1516,7 +1516,11 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	2,					// bSubFrameSize = 2 byte
 	16,					// bBitResolution = 16 bits
 	1,					// bSamFreqType = 1 frequency
-	LSB(44100), MSB(44100), 0,		// tSamFreq
+#ifdef USB_AUDIO_48KHZ
+	MSB(48000), MSB(48000), 0,
+#else
+    LSB(44100), MSB(44100), 0,      // tSamFreq
+#endif
 	// Standard AS Isochronous Audio Data Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.1.1, Table 4-20, page 61-62
 	9, 					// bLength
@@ -1575,7 +1579,11 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	2,					// bSubFrameSize = 2 byte
 	16,					// bBitResolution = 16 bits
 	1,					// bSamFreqType = 1 frequency
-	LSB(44100), MSB(44100), 0,		// tSamFreq
+#ifdef USB_AUDIO_48KHZ
+    MSB(48000), MSB(48000), 0,
+#else
+    LSB(44100), MSB(44100), 0,      // tSamFreq
+#endif
 	// Standard AS Isochronous Audio Data Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.1.1, Table 4-20, page 61-62
 	9, 					// bLength
@@ -1583,6 +1591,7 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	AUDIO_RX_ENDPOINT,			// bEndpointAddress
 	0x05, 					// bmAttributes = isochronous, asynchronous
 	LSB(AUDIO_RX_SIZE), MSB(AUDIO_RX_SIZE),	// wMaxPacketSize
+	// USB_AUDIO_48KHZ Change below to receive audio packets every 125us instead of 1ms
 	4,			 		// bInterval, 4 = every 8 micro-frames
 	0,					// bRefresh
 	AUDIO_SYNC_ENDPOINT | 0x80,		// bSynchAddress

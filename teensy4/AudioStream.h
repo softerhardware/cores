@@ -37,6 +37,9 @@
 
 #endif
 
+#define USB_AUDIO_48KHZ 1
+
+
 // AUDIO_BLOCK_SAMPLES determines how many samples the audio library processes
 // per update.  It may be reduced to achieve lower latency response to events,
 // at the expense of higher interrupt and DMA setup overhead.
@@ -51,11 +54,19 @@
 //   AudioAnalyzeFFT1024
 
 #ifndef AUDIO_BLOCK_SAMPLES
+#ifdef USB_AUDIO_48KHZ
 #define AUDIO_BLOCK_SAMPLES  128
+#else
+#define AUDIO_BLOCK_SAMPLES  128
+#endif
 #endif
 
 #ifndef AUDIO_SAMPLE_RATE_EXACT
+#ifdef USB_AUDIO_48KHZ
+#define AUDIO_SAMPLE_RATE_EXACT 48000.0f
+#else
 #define AUDIO_SAMPLE_RATE_EXACT 44100.0f
+#endif
 #endif
 
 #define AUDIO_SAMPLE_RATE AUDIO_SAMPLE_RATE_EXACT
