@@ -1517,7 +1517,7 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	16,					// bBitResolution = 16 bits
 	1,					// bSamFreqType = 1 frequency
 #ifdef USB_AUDIO_48KHZ
-	MSB(48000), MSB(48000), 0,
+	LSB(48000), MSB(48000), 0,
 #else
     LSB(44100), MSB(44100), 0,      // tSamFreq
 #endif
@@ -1580,7 +1580,7 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	16,					// bBitResolution = 16 bits
 	1,					// bSamFreqType = 1 frequency
 #ifdef USB_AUDIO_48KHZ
-    MSB(48000), MSB(48000), 0,
+    LSB(48000), MSB(48000), 0,
 #else
     LSB(44100), MSB(44100), 0,      // tSamFreq
 #endif

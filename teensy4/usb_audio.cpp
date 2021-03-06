@@ -35,6 +35,10 @@
 
 #ifdef AUDIO_INTERFACE
 
+// Choose feedback method
+#define USB_AUDIO_FEEDBACK_SOF
+//#define USB_AUDIO_FEEDBACK_DL1YCF
+
 bool AudioInputUSB::update_responsibility;
 audio_block_t * AudioInputUSB::incoming_left;
 audio_block_t * AudioInputUSB::incoming_right;
@@ -65,7 +69,20 @@ uint32_t feedback_accumulator;
 
 volatile uint32_t usb_audio_underrun_count;
 volatile uint32_t usb_audio_overrun_count;
-volatile uint16_t usb_audio_block_count;
+
+#if defined(USB_AUDIO_FEEDBACK_SOF)
+uint64_t usb_audio_samples_consumed;
+volatile uint32_t usb_audio_frames_counted;
+
+#elif defined(USB_AUDIO_FEEDBACK_DL1YCF)
+// DL1YCF:
+// two new variables for the "damped oscillator"
+// feedback loop
+int32_t feedback_speed_correction;   // buffer for the speed correction
+uint16_t old_incoming_count;         // measuring the speed
+
+#endif
+
 
 
 static void rx_event(transfer_t *t)
@@ -95,12 +112,24 @@ void usb_audio_configure(void)
 	printf("usb_audio_configure\n");
 	usb_audio_underrun_count = 0;
 	usb_audio_overrun_count = 0;
-	usb_audio_block_count = 1000; // Block synchronization for 1000 frames at start
+
 #ifdef USB_AUDIO_48KHZ
 	feedback_accumulator = 805306368; // 48 * 2^24
 #else
 	feedback_accumulator = 739875226; // 44.1 * 2^24
 #endif
+
+#if defined(USB_AUDIO_FEEDBACK_SOF)
+	// Preload averging accumulator with SOF_WAITMS worth of exact audio rate samples, calculation done once
+	usb_audio_samples_consumed = uint64_t(USB_AUDIO_FEEDBACK_SOF_WAITMS) * feedback_accumulator;
+	usb_audio_frames_counted = USB_AUDIO_FEEDBACK_SOF_INITMS;
+
+#elif defined(USB_AUDIO_FEEDBACK_DL1YCF)
+	// DL1YCF: init the two new variables
+	feedback_speed_correction = 0;
+	old_incoming_count=0;
+#endif
+
 	if (usb_high_speed) {
 		usb_audio_sync_nbytes = 4;
 		usb_audio_sync_rshift = 8;
@@ -175,33 +204,33 @@ void usb_audio_receive_callback(unsigned int len)
 	static uint32_t lenmin = 1000;
 	static uint32_t lenmax = 0;
 	static uint32_t lencount = 0;
-	static uint32_t feedback_max = 0;
-	static uint32_t feedback_min = 905306368;
+	//static uint32_t feedback_max = 0;
+	//static uint32_t feedback_min = 905306368;
 	static uint32_t last_overrun = 0;
 	static uint32_t last_underrun = 0;
 
 	if (len > lenmax) lenmax = len;
 	if (len < lenmin) lenmin = len;
-	if (feedback_accumulator > feedback_max) feedback_max = feedback_accumulator;
-	if (feedback_accumulator < feedback_min) feedback_min = feedback_accumulator;
+	//if (feedback_accumulator > feedback_max) feedback_max = feedback_accumulator;
+	//if (feedback_accumulator < feedback_min) feedback_min = feedback_accumulator;
 
 	if (lencount == 1000) {
 		Serial.print(lenmin);
 		Serial.print(" ");
 		Serial.print(lenmax);
 		Serial.print(" ");
-		Serial.print(feedback_min);
+		Serial.print(float(feedback_accumulator)/16777216.0, 5);
 		Serial.print(" ");
-		Serial.print(feedback_max);
+		//Serial.print(float(alt_feedback_accumulator)/16777216.0, 5);
+		//Serial.print(" ");
+		Serial.print(usb_audio_overrun_count);
 		Serial.print(" ");
-		Serial.print(usb_audio_overrun_count-last_overrun);
-		Serial.print(" ");
-		Serial.println(usb_audio_underrun_count-last_underrun);
+		Serial.println(usb_audio_underrun_count);
 		lenmin = 1000;
 		lenmax = 0;
 		lencount = 0;
-		feedback_max = 0;
-		feedback_min = 905306368;
+		//feedback_max = 0;
+		//feedback_min = 905306368;
 		last_overrun = usb_audio_overrun_count;
 		last_underrun = usb_audio_underrun_count;
 	} else {
@@ -209,8 +238,7 @@ void usb_audio_receive_callback(unsigned int len)
 	}
 #endif
 
-	if (usb_audio_block_count == 0) AudioInputUSB::receive_flag = 1;
-	else usb_audio_block_count--;
+	AudioInputUSB::receive_flag = 1;
 	len >>= 2; // 1 sample = 4 bytes: 2 left, 2 right
 	data = (const uint32_t *)rx_buffer;
 
@@ -242,6 +270,11 @@ void usb_audio_receive_callback(unsigned int len)
 				AudioInputUSB::incoming_count = count + avail;
 				if (len > 0) {
 					usb_audio_overrun_count++;
+#if defined(USB_AUDIO_FEEDBACK_DL1YCF)
+					// the measured speed will be too low if we
+					// do not account for "ignored" incoming samples
+					old_incoming_count -= len;
+#endif
 					//Serial.print("U");
 					//Serial.println(len);
 					//printf("!");
@@ -291,9 +324,118 @@ void AudioInputUSB::update(void)
 	ready_right = NULL;
 	uint16_t c = incoming_count;
 	uint8_t f = receive_flag;
+
+#if defined(USB_AUDIO_FEEDBACK_SOF)
+	uint32_t frames_counted = usb_audio_frames_counted;
+	uint16_t to_remove;
+	// This is the frames to average over, exponential moving average
+	if (frames_counted > USB_AUDIO_FEEDBACK_SOF_MAXMS) {
+		to_remove = frames_counted - USB_AUDIO_FEEDBACK_SOF_MAXMS;
+		usb_audio_frames_counted -= to_remove;
+	} else {
+		to_remove = 0;
+	}
+
+#elif defined(USB_AUDIO_FEEDBACK_DL1YCF)
+	uint16_t d = old_incoming_count;
+	old_incoming_count = incoming_count;
+#endif
+
 	receive_flag = 0;
 	__enable_irq();
-	if (f && left && right) {
+
+
+#if 0
+	//
+	// This prints out the actual value of the feedback
+	// correction (converted to Hz) and the min and max
+	// value of incoming_count few times per second on
+	// the console. This can be used to debug the
+	// feedback control loop
+	//
+	static uint16_t max_buf=0;
+	static uint16_t min_buf=9999;
+	static uint16_t debug=0;
+
+	if (c > max_buf) max_buf=c;
+	if (c < min_buf) min_buf=c;
+
+	if (++debug > 200) {
+		debug=0;
+		Serial.print("Corr= ");
+		Serial.print(feedback_accumulator*0.00005960464477539063);
+		Serial.print(" Min= ");
+		Serial.print(min_buf); 
+		Serial.print(" Max= ");
+		Serial.print(max_buf);
+		Serial.print(" O");
+		Serial.print(usb_audio_overrun_count);
+		Serial.print(" U");
+		Serial.println(usb_audio_underrun_count); 
+		min_buf=9999;
+		max_buf=0;
+	}
+#endif
+
+#if defined(USB_AUDIO_FEEDBACK_SOF)
+	if (frames_counted > USB_AUDIO_FEEDBACK_SOF_WAITMS) {
+		// Hope the compiler optimizes this to a constant
+		usb_audio_samples_consumed += (uint32_t(AUDIO_BLOCK_SAMPLES) << 24);
+		feedback_accumulator = usb_audio_samples_consumed / frames_counted;
+		// to_remove is expected to be small so a loop is used
+		// multiplication will work too but may be more expensive
+		while (to_remove > 0) {
+			usb_audio_samples_consumed -= feedback_accumulator;
+			to_remove--;
+		}
+	}
+	if (!left || !right) usb_audio_underrun_count++;
+
+#elif defined(USB_AUDIO_FEEDBACK_DL1YCF)
+
+	if (f) {
+		//
+		// DL1YCF: new feedback "damped oscillator" correction
+		//
+		feedback_accumulator += AUDIO_BLOCK_SAMPLES/2 - (int) c;
+		//
+		// The two "magic" constants 2508 and 2400 correspond to
+		// to a damping ratio of zeta=0.5. To increase zeta to
+		// the "critically damped" case (zeta=1.0),
+		// these two parameters must be doubled.
+		//
+#ifdef USB_AUDIO_48KHZ
+		feedback_speed_correction -= 2508*((int) c - (int) d);
+#else
+		feedback_speed_correction -= 2400*((int) c - (int) d);
+#endif
+		//
+		// "stretch" and average the updates over a long period
+		// to filter out high-frequency oscillations in the incoming
+		// buffer count
+		//
+		if (feedback_speed_correction < -64) {
+			feedback_accumulator -=64;
+			feedback_speed_correction += 64;
+		} else if (feedback_speed_correction > 64) {
+			feedback_accumulator += 64;
+			feedback_speed_correction -=64;
+ 		}
+		if (!left || !right) {
+			usb_audio_underrun_count++;
+			//
+			// The buffer filling will bump up by one block
+			// since we did not "fetch" the data.
+			// This will compromise the speed measurement.
+			//
+			__disable_irq();
+			old_incoming_count += AUDIO_BLOCK_SAMPLES;
+			__enable_irq();
+		}
+	}
+
+#else
+	if (f) {
 		int diff = AUDIO_BLOCK_SAMPLES/2 - (int)c;
 		feedback_accumulator += diff * 1;
 		//uint32_t feedback = (feedback_accumulator >> 8) + diff * 100;
@@ -303,6 +445,7 @@ void AudioInputUSB::update(void)
 	}
 	//serial_phex(c);
 	//serial_print(".");
+
 	if (!left || !right) {
 		usb_audio_underrun_count++;
 		//Serial.print("O");
@@ -313,6 +456,8 @@ void AudioInputUSB::update(void)
 		// The line below causes the feedback_accumulator to be way off
 		if (f) feedback_accumulator += 3500;
 	}
+#endif
+
 	if (left) {
 		transmit(left, 0);
 		release(left);
@@ -322,19 +467,6 @@ void AudioInputUSB::update(void)
 		release(right);
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -456,6 +588,11 @@ unsigned int usb_audio_transmit_callback(void)
 		count = 0;
 		target = 45;
 	}
+#endif
+
+#ifdef USB_AUDIO_FEEDBACK_SOF
+	// usb_audio_transmit_callback is reliably called with each start of frame 
+	usb_audio_frames_counted++;
 #endif
 
 	while (len < target) {
