@@ -36,13 +36,12 @@
 #define FEATURE_MAX_VOLUME 0xFF  // volume accepted from 0 to 0xFF
 
 // Precompute values for USB_AUDIO_FEEDBACK_SOF
-// Total ms to compute exponential moving average
-#define USB_AUDIO_FEEDBACK_SOF_MAXMS 60000
-// WAITMS is the number of ms in the initial averaging accumulator, used to smooth initial SOF samples
-#define USB_AUDIO_FEEDBACK_SOF_WAITMS 5000
-// WAITMS-INITMS is the number of ms to wait before starting feedback calculations
-// about 2-3 seconds is needed as the usb and audio callback are not initially nicely synchronized 
-#define USB_AUDIO_FEEDBACK_SOF_INITMS 2500
+// Total 0.125us to compute exponential moving average
+#define USB_AUDIO_FEEDBACK_SOF_MAX 480000
+
+// Choose feedback method, original if neither is defined
+#define USB_AUDIO_FEEDBACK_SOF
+//#define USB_AUDIO_FEEDBACK_DL1YCF
 
 
 #ifdef __cplusplus
@@ -58,6 +57,9 @@ extern void usb_audio_receive_callback(unsigned int len);
 extern unsigned int usb_audio_transmit_callback(void);
 extern int usb_audio_set_feature(void *stp, uint8_t *buf);
 extern int usb_audio_get_feature(void *stp, uint8_t *data, uint32_t *datalen);
+#ifdef USB_AUDIO_FEEDBACK_SOF
+void usb_audio_update_sof_count(void);
+#endif
 #ifdef __cplusplus
 }
 #endif

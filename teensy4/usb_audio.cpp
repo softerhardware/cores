@@ -35,10 +35,6 @@
 
 #ifdef AUDIO_INTERFACE
 
-// Choose feedback method
-#define USB_AUDIO_FEEDBACK_SOF
-//#define USB_AUDIO_FEEDBACK_DL1YCF
-
 bool AudioInputUSB::update_responsibility;
 audio_block_t * AudioInputUSB::incoming_left;
 audio_block_t * AudioInputUSB::incoming_right;
@@ -73,6 +69,15 @@ volatile uint32_t usb_audio_overrun_count;
 #if defined(USB_AUDIO_FEEDBACK_SOF)
 uint64_t usb_audio_samples_consumed;
 volatile uint32_t usb_audio_frames_counted;
+int16_t usb_audio_start_feedback_countdown;
+
+void usb_audio_update_sof_count(void)
+{
+	if (usb_audio_start_feedback_countdown <= 0) {
+		if (usb_high_speed) usb_audio_frames_counted++;
+		else usb_audio_frames_counted += 8; // full speed sof is 1ms or 8*0.125us
+	}
+}
 
 #elif defined(USB_AUDIO_FEEDBACK_DL1YCF)
 // DL1YCF:
@@ -82,8 +87,6 @@ int32_t feedback_speed_correction;   // buffer for the speed correction
 uint16_t old_incoming_count;         // measuring the speed
 
 #endif
-
-
 
 static void rx_event(transfer_t *t)
 {
@@ -120,9 +123,12 @@ void usb_audio_configure(void)
 #endif
 
 #if defined(USB_AUDIO_FEEDBACK_SOF)
-	// Preload averging accumulator with SOF_WAITMS worth of exact audio rate samples, calculation done once
-	usb_audio_samples_consumed = uint64_t(USB_AUDIO_FEEDBACK_SOF_WAITMS) * feedback_accumulator;
-	usb_audio_frames_counted = USB_AUDIO_FEEDBACK_SOF_INITMS;
+	// Preload averging accumulator with SOF_WAIT worth of exact audio rate samples, calculation done once
+	usb_audio_samples_consumed = 0;
+	usb_audio_frames_counted = 0;
+	// samples to consume before beginning feedback calculations
+	// For the first few seconds after power on, either SOF or audio clocks are not locked yet
+	usb_audio_start_feedback_countdown = 2500;
 
 #elif defined(USB_AUDIO_FEEDBACK_DL1YCF)
 	// DL1YCF: init the two new variables
@@ -146,6 +152,7 @@ void usb_audio_configure(void)
 	memset(&tx_transfer, 0, sizeof(tx_transfer));
 	usb_config_tx_iso(AUDIO_TX_ENDPOINT, AUDIO_TX_SIZE, 1, tx_event);
 	tx_event(NULL);
+	usb_start_sof_interrupts(AUDIO_INTERFACE);
 }
 
 void AudioInputUSB::begin(void)
@@ -329,8 +336,8 @@ void AudioInputUSB::update(void)
 	uint32_t frames_counted = usb_audio_frames_counted;
 	uint16_t to_remove;
 	// This is the frames to average over, exponential moving average
-	if (frames_counted > USB_AUDIO_FEEDBACK_SOF_MAXMS) {
-		to_remove = frames_counted - USB_AUDIO_FEEDBACK_SOF_MAXMS;
+	if (frames_counted > uint32_t(USB_AUDIO_FEEDBACK_SOF_MAX)) {
+		to_remove = frames_counted - uint32_t(USB_AUDIO_FEEDBACK_SOF_MAX);
 		usb_audio_frames_counted -= to_remove;
 	} else {
 		to_remove = 0;
@@ -360,7 +367,7 @@ void AudioInputUSB::update(void)
 	if (c > max_buf) max_buf=c;
 	if (c < min_buf) min_buf=c;
 
-	if (++debug > 200) {
+	if (++debug > 500) {
 		debug=0;
 		Serial.print("Corr= ");
 		Serial.print(feedback_accumulator*0.00005960464477539063);
@@ -371,23 +378,28 @@ void AudioInputUSB::update(void)
 		Serial.print(" O");
 		Serial.print(usb_audio_overrun_count);
 		Serial.print(" U");
-		Serial.println(usb_audio_underrun_count); 
+		Serial.print(usb_audio_underrun_count);
+		Serial.print(" ");
+		Serial.println(to_remove);
 		min_buf=9999;
 		max_buf=0;
 	}
 #endif
 
 #if defined(USB_AUDIO_FEEDBACK_SOF)
-	if (frames_counted > USB_AUDIO_FEEDBACK_SOF_WAITMS) {
+	if (usb_audio_start_feedback_countdown > 0) { 
+		usb_audio_start_feedback_countdown--;
+	} else {
 		// Hope the compiler optimizes this to a constant
-		usb_audio_samples_consumed += (uint32_t(AUDIO_BLOCK_SAMPLES) << 24);
+		usb_audio_samples_consumed += (uint64_t(AUDIO_BLOCK_SAMPLES) << 27);
 		feedback_accumulator = usb_audio_samples_consumed / frames_counted;
+		usb_audio_samples_consumed -= uint64_t(uint64_t(feedback_accumulator) * uint32_t(to_remove));
 		// to_remove is expected to be small so a loop is used
 		// multiplication will work too but may be more expensive
-		while (to_remove > 0) {
-			usb_audio_samples_consumed -= feedback_accumulator;
-			to_remove--;
-		}
+		//while (to_remove > 0) {
+		//	usb_audio_samples_consumed -= feedback_accumulator;
+		//	to_remove--;
+		//}
 	}
 	if (!left || !right) usb_audio_underrun_count++;
 
@@ -588,11 +600,6 @@ unsigned int usb_audio_transmit_callback(void)
 		count = 0;
 		target = 45;
 	}
-#endif
-
-#ifdef USB_AUDIO_FEEDBACK_SOF
-	// usb_audio_transmit_callback is reliably called with each start of frame 
-	usb_audio_frames_counted++;
 #endif
 
 	while (len < target) {

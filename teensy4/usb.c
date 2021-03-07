@@ -341,6 +341,9 @@ static void isr(void)
 				asm("bkpt #251"); // run bootloader
 			}
 		}
+		#if defined(AUDIO_INTERFACE) && defined(USB_AUDIO_FEEDBACK_SOF)
+		usb_audio_update_sof_count();
+		#endif
 		#ifdef MIDI_INTERFACE
 		usb_midi_flush_output();
 		#endif
