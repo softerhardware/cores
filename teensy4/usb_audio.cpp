@@ -371,6 +371,10 @@ void AudioInputUSB::update(void)
 		debug=0;
 		Serial.print("Corr= ");
 		Serial.print(feedback_accumulator*0.00005960464477539063);
+#if defined(USB_AUDIO_FEEDBACK_DL1YCF)
+                Serial.print(" FSC=");
+                Serial.print(feedback_speed_correction);
+#endif
 		Serial.print(" Min= ");
 		Serial.print(min_buf); 
 		Serial.print(" Max= ");
@@ -379,8 +383,11 @@ void AudioInputUSB::update(void)
 		Serial.print(usb_audio_overrun_count);
 		Serial.print(" U");
 		Serial.print(usb_audio_underrun_count);
-		Serial.print(" ");
-		Serial.println(to_remove);
+#if defined(USB_AUDIO_FEEDBACK_SOF)
+		Serial.print(" R");
+		Serial.print(to_remove);
+#endif
+                Serial.println(";");
 		min_buf=9999;
 		max_buf=0;
 	}
