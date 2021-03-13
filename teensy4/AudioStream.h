@@ -55,7 +55,7 @@
 
 #ifndef AUDIO_BLOCK_SAMPLES
 #ifdef USB_AUDIO_48KHZ
-#define AUDIO_BLOCK_SAMPLES  64
+#define AUDIO_BLOCK_SAMPLES  32
 #else
 #define AUDIO_BLOCK_SAMPLES  128
 #endif

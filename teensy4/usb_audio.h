@@ -43,6 +43,8 @@
 #define USB_AUDIO_FEEDBACK_SOF
 //#define USB_AUDIO_FEEDBACK_DL1YCF
 
+#define USB_AUDIO_INPUT_BUFFERS 4
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -88,12 +90,18 @@ public:
 		if (features.mute) return 0.0;
 		return (float)(features.volume) * (1.0 / (float)FEATURE_MAX_VOLUME);
 	}
+
 private:
+
 	static bool update_responsibility;
-	static audio_block_t *incoming_left;
-	static audio_block_t *incoming_right;
-	static audio_block_t *ready_left;
-	static audio_block_t *ready_right;
+	//s//tatic audio_block_t *input_left[USB_AUDIO_INPUT_BUFFERS];
+	//static audio_block_t *input_right[USB_AUDIO_INPUT_BUFFERS];
+	//static uint16_t incoming_index;
+	//static uint16_t ready_index;
+	//static audio_block_t *incoming_left;
+	//static audio_block_t *incoming_right;
+	//static audio_block_t *ready_left;
+	//static audio_block_t *ready_right;
 	static uint16_t incoming_count;
 	static uint8_t receive_flag;
 };
