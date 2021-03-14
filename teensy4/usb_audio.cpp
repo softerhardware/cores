@@ -115,13 +115,13 @@ static void copy_to_buffers(const uint32_t *src, int16_t *left, int16_t *right, 
 
 // Precompute values for USB_AUDIO_FEEDBACK_SOF
 // Total 0.125us to compute exponential moving average
-#define USB_AUDIO_FEEDBACK_SOF_MAX 480000
+static const uint32_t USB_AUDIO_FEEDBACK_SOF_MAX = 480000;
 
 // Buffers
-#define USB_AUDIO_INPUT_BUFFERS 4
+static const uint16_t USB_AUDIO_INPUT_BUFFERS=4;
 
 // Limit for near under/over run to start adjusting clock
-#define USB_AUDIO_GUARD_RAIL 4
+static const uint16_t USB_AUDIO_GUARD_RAIL=4;
 
 #ifdef USB_AUDIO_48KHZ	
 static const uint32_t USB_AUDIO_FEEDBACK_INIT = 805306368; // 48 * 2^24
@@ -133,7 +133,7 @@ static const uint32_t USB_AUDIO_FEEDBACK_MAX  = 740210769; // 44.120 * 2^24
 static const uint32_t USB_AUDIO_FEEDBACK_MIN  = 739539681; // 44.080 * 2^24
 #endif
 
-
+// Static in this context (outside of a funciton) means the variable scope is this file only
 static audio_block_t *input_left[USB_AUDIO_INPUT_BUFFERS];
 static audio_block_t *input_right[USB_AUDIO_INPUT_BUFFERS];
 static uint16_t incoming_index;
@@ -141,11 +141,11 @@ static uint16_t ready_index;
 
 static uint16_t incoming_count;
 
-volatile uint32_t usb_audio_near_overrun_count;
-volatile uint32_t usb_audio_near_underrun_count;
+static uint32_t usb_audio_near_overrun_count;
+static uint32_t usb_audio_near_underrun_count;
 
 static uint64_t usb_audio_samples_consumed;
-volatile uint32_t usb_audio_frames_counted;
+static volatile uint32_t usb_audio_frames_counted;
 
 void usb_audio_update_sof_count(void)
 {
@@ -171,7 +171,7 @@ void usb_audio_configure(void)
 	}
 	incoming_count = 0;
 	incoming_index = 0;
-	ready_index = 2; // FIXME
+	ready_index = USB_AUDIO_INPUT_BUFFERS >> 1;
 
 	if (usb_high_speed) {
 		usb_audio_sync_nbytes = 4;
@@ -321,14 +321,13 @@ void AudioInputUSB::update(void)
 	//	left = NULL;
 	//	right = NULL;
 	//}
-	uint16_t c = incoming_count;
 	uint16_t next_ready_index;
 
 	uint32_t frames_counted = usb_audio_frames_counted;
 	uint16_t to_remove;
 	// This is the frames to average over, exponential moving average
-	if (frames_counted > uint32_t(USB_AUDIO_FEEDBACK_SOF_MAX)) {
-		to_remove = frames_counted - uint32_t(USB_AUDIO_FEEDBACK_SOF_MAX);
+	if (frames_counted > USB_AUDIO_FEEDBACK_SOF_MAX) {
+		to_remove = frames_counted - USB_AUDIO_FEEDBACK_SOF_MAX;
 		usb_audio_frames_counted -= to_remove;
 	} else {
 		to_remove = 0;
@@ -393,7 +392,7 @@ void AudioInputUSB::update(void)
 	} else if (next_ready_index == incoming_index) {
 		if (input_left[next_ready_index] || input_right[next_ready_index]) {
 			// Next buffers are being filled, check incoming count
-			if (c <= USB_AUDIO_GUARD_RAIL) {
+			if (incoming_count <= USB_AUDIO_GUARD_RAIL) {
 				usb_audio_near_underrun_count++;
 				// Local clock is running faster so speed up relation
 				usb_audio_samples_consumed += uint64_t(usb_audio_samples_consumed >> 25);
