@@ -77,6 +77,7 @@ public:
 	virtual void update(void);
 	void begin(void);
 	friend void usb_audio_receive_callback(unsigned int len);
+	friend void usb_audio_configure(void);
 	friend int usb_audio_set_feature(void *stp, uint8_t *buf);
 	friend int usb_audio_get_feature(void *stp, uint8_t *data, uint32_t *datalen);
 	static struct usb_audio_features_struct features;

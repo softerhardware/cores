@@ -134,12 +134,10 @@ static const uint32_t USB_AUDIO_FEEDBACK_MIN  = 739539681; // 44.080 * 2^24
 #endif
 
 // Static in this context (outside of a funciton) means the variable scope is this file only
-static audio_block_t *input_left[USB_AUDIO_INPUT_BUFFERS];
-static audio_block_t *input_right[USB_AUDIO_INPUT_BUFFERS];
-static uint16_t incoming_index;
-static uint16_t ready_index;
-
-static uint16_t incoming_count;
+static audio_block_t *input_left[USB_AUDIO_INPUT_BUFFERS] = { NULL };
+static audio_block_t *input_right[USB_AUDIO_INPUT_BUFFERS] = { NULL };
+static uint16_t write_index;
+static uint16_t read_index;
 
 static uint32_t usb_audio_near_overrun_count;
 static uint32_t usb_audio_near_underrun_count;
@@ -165,13 +163,8 @@ void usb_audio_configure(void)
 	usb_audio_samples_consumed = 0;
 	usb_audio_frames_counted = 0;
 
-	for (uint16_t i = 0; i<USB_AUDIO_INPUT_BUFFERS; i++) {
-		input_right[i] = NULL;
-		input_left[i] = NULL;
-	}
-	incoming_count = 0;
-	incoming_index = 0;
-	ready_index = USB_AUDIO_INPUT_BUFFERS >> 1;
+	write_index = 0;
+	read_index = 0x080; // FIXME
 
 	if (usb_high_speed) {
 		usb_audio_sync_nbytes = 4;
@@ -194,6 +187,7 @@ void usb_audio_configure(void)
 
 void AudioInputUSB::begin(void)
 {
+
 	// update_responsibility = update_setup();
 	// TODO: update responsibility is tough, partly because the USB
 	// interrupts aren't sychronous to the audio library block size,
@@ -208,121 +202,90 @@ void AudioInputUSB::begin(void)
 //
 void usb_audio_receive_callback(unsigned int len)
 {
-	unsigned int count, avail;
 	audio_block_t *left, *right;
 	const uint32_t *data;
-	uint16_t next_incoming_index;
+	uint16_t avail;
+	uint16_t wi, ri, count;
 
 	len >>= 2; // 1 sample = 4 bytes: 2 left, 2 right
 	data = (const uint32_t *)rx_buffer;
 
-	count = incoming_count;
-	left = input_left[incoming_index];
-	right = input_right[incoming_index];
-	if (left == NULL) {
-		left = AudioStream::allocate();
-		if (left == NULL) return;
-		input_left[incoming_index] = left;
-	}
-	if (right == NULL) {
-		right = AudioStream::allocate();
-		if (right == NULL) return;
-		input_right[incoming_index] = right;
-	}
-
 	while (len > 0) {
 
-		next_incoming_index = incoming_index+1;
-		if (next_incoming_index >= USB_AUDIO_INPUT_BUFFERS) {
-			next_incoming_index = 0;
+		ri = read_index >> 5;
+		wi = write_index >> 5;
+		count = write_index & 0x01f;
+
+		// Check for overrun
+		if (ri==wi) {
+			usb_audio_overrun_count++;
+			return;
 		}
 
+		// Initialize arrays (Why can't this be done early?!?)
+		left = input_left[wi&0x03];
+		if (left == NULL) {
+			left = AudioStream::allocate();
+			if (left == NULL) return;
+			input_left[wi&0x03] =left;
+		}
+
+		right = input_right[wi&0x03];
+		if (right == NULL) {
+			right = AudioStream::allocate();
+			if (right == NULL) return;
+			input_right[wi&0x03] = right;
+		}
+		
 		avail = AUDIO_BLOCK_SAMPLES - count;
 		if (len < avail) {
+			// Available room in current buffer
 			copy_to_buffers(data, left->data + count, right->data + count, len);
-			incoming_count = count + len;
+
+			write_index += len;
 
 			// Check for near overrun condition
-			if ((avail - len) >= USB_AUDIO_GUARD_RAIL) return;
+			if ((avail - len) > USB_AUDIO_GUARD_RAIL) return;
 
-			// Not enough available so check if next buffer occupied
-			if (input_left[next_incoming_index] || input_right[next_incoming_index]) {
+			// Not enough available so check if next buffer in use
+			wi = (wi + 1) & 0x07;
+			if (ri==wi) {
 				usb_audio_near_overrun_count++;
 				usb_audio_samples_consumed -= uint64_t(usb_audio_samples_consumed >> 25);
 			}
 			return;
 
 		} else if (avail > 0) {
+			// Available room but maybe not enough
 			copy_to_buffers(data, left->data + count, right->data + count, avail);
 			data += avail;
 			len -= avail;
 
-			if (input_left[next_incoming_index] || input_right[next_incoming_index]) {
-				// buffer overrun, PC sending too fast
-				incoming_count = count + avail;
-				if (len > 0) {
-					usb_audio_overrun_count++;
-					usb_audio_samples_consumed -= uint64_t(usb_audio_samples_consumed >> 25);
+			write_index += avail;
+			write_index = write_index & 0x0ff;
 
-				} else {
-					// Exactly enough space so near overrun
+			if (len == 0) {
+				// Check for near overrun
+				wi = write_index >> 5;
+				if (ri==wi) {
 					usb_audio_near_overrun_count++;
 					usb_audio_samples_consumed -= uint64_t(usb_audio_samples_consumed >> 25);
 				}
-				return;
 			}
-			
-
-			send:
-
-			incoming_index = next_incoming_index;
-			left = AudioStream::allocate();
-			if (left == NULL) {
-				incoming_count = 0;
-				return;
-			}
-			right = AudioStream::allocate();
-			if (right == NULL) {
-				AudioStream::release(left);
-				incoming_count = 0;
-				return;
-			}
-
-			input_left[incoming_index] = left;
-			input_right[incoming_index] = right;
-			count = 0;
-		} else {
-
-			if (input_left[next_incoming_index] || input_right[next_incoming_index]) {
-				// Available is zero near overrun
-				usb_audio_near_overrun_count++;
-				return;
-			}
-			goto send; // recover from buffer overrun
 		}
 	}
-	incoming_count = count;
 }
 
 
 void AudioInputUSB::update(void)
 {
-	audio_block_t *left, *right;
 	static uint16_t rate_errors = 0;
+	uint16_t wi,ri;
+	audio_block_t *left, *right;
 
 	__disable_irq();
 
-	//if (ready_index != incoming_index) {
-		left = input_left[ready_index];
-		input_left[ready_index] = NULL;
-		right = input_right[ready_index];
-		input_right[ready_index] = NULL;
-	//} else {
-	//	left = NULL;
-	//	right = NULL;
-	//}
-	uint16_t next_ready_index;
-
+	uint16_t local_write_index = write_index;
 	uint32_t frames_counted = usb_audio_frames_counted;
 	uint16_t to_remove;
 	// This is the frames to average over, exponential moving average
@@ -362,6 +325,7 @@ void AudioInputUSB::update(void)
 #endif
 
 	// Hope the compiler optimizes this to a constant
+	// Feedback doesn't need to be computed more frequently than every 1ms, but will be if AUDIO_BLOCK_SAMPLES <= 32
 	usb_audio_samples_consumed += (uint64_t(AUDIO_BLOCK_SAMPLES) << 27);
 	feedback_accumulator = usb_audio_samples_consumed / frames_counted;
 	usb_audio_samples_consumed -= uint64_t(uint64_t(feedback_accumulator) * uint32_t(to_remove));
@@ -381,37 +345,33 @@ void AudioInputUSB::update(void)
 		rate_errors = 0;
 	}
 
-	next_ready_index = ready_index+1;
-	if (next_ready_index >= USB_AUDIO_INPUT_BUFFERS) {
-		next_ready_index = 0;
-	}
-
-	if (!left || !right) {
+	// Check for underrun
+	ri = read_index >> 5;
+	wi = local_write_index >> 5;
+	if ((wi ^ ri) == 0x04) {
 		usb_audio_underrun_count++;
-		// Don't adjust samples here as when there is no audio for host there will be underruns
-	} else if (next_ready_index == incoming_index) {
-		if (input_left[next_ready_index] || input_right[next_ready_index]) {
-			// Next buffers are being filled, check incoming count
-			if (incoming_count <= USB_AUDIO_GUARD_RAIL) {
-				usb_audio_near_underrun_count++;
-				// Local clock is running faster so speed up relation
-				usb_audio_samples_consumed += uint64_t(usb_audio_samples_consumed >> 25);
-			}
-		} else {
-			// Next buffers are not even being filled
-			usb_audio_near_underrun_count++;
-			usb_audio_samples_consumed += uint64_t(usb_audio_samples_consumed >> 25);
-		}
+		return;
 	}
 
-	if (left) {
-		ready_index = next_ready_index;
-		transmit(left, 0);
-		release(left);
-	}
-	if (right) {
-		transmit(right, 1);
-		release(right);
+	left = input_left[ri&0x03];
+	right = input_right[ri&0x03];
+
+	if (!left || !right) return;
+
+	transmit(left, 0);
+	transmit(right, 1);
+
+	read_index += AUDIO_BLOCK_SAMPLES;
+	read_index = read_index & 0x0ff;
+
+	// Check for near underrun
+	ri = read_index >> 5;
+	if ((wi ^ ri) == 0x04) {
+		if ((local_write_index & 0x01f) <= USB_AUDIO_GUARD_RAIL) {
+			usb_audio_near_underrun_count++;
+			// Local clock is running faster so increase feedback to nudge away from edge
+			usb_audio_samples_consumed += uint64_t(usb_audio_samples_consumed >> 25);			
+		}
 	}
 }
 
