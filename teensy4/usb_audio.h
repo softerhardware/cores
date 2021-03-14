@@ -35,15 +35,9 @@
 
 #define FEATURE_MAX_VOLUME 0xFF  // volume accepted from 0 to 0xFF
 
-// Precompute values for USB_AUDIO_FEEDBACK_SOF
-// Total 0.125us to compute exponential moving average
-#define USB_AUDIO_FEEDBACK_SOF_MAX 480000
-
 // Choose feedback method, original if neither is defined
 #define USB_AUDIO_FEEDBACK_SOF
 //#define USB_AUDIO_FEEDBACK_DL1YCF
-
-#define USB_AUDIO_INPUT_BUFFERS 4
 
 
 #ifdef __cplusplus
@@ -94,16 +88,15 @@ public:
 private:
 
 	static bool update_responsibility;
-	//s//tatic audio_block_t *input_left[USB_AUDIO_INPUT_BUFFERS];
-	//static audio_block_t *input_right[USB_AUDIO_INPUT_BUFFERS];
-	//static uint16_t incoming_index;
-	//static uint16_t ready_index;
-	//static audio_block_t *incoming_left;
-	//static audio_block_t *incoming_right;
-	//static audio_block_t *ready_left;
-	//static audio_block_t *ready_right;
+
+#if !defined(USB_AUDIO_FEEDBACK_SOF)
+	static audio_block_t *incoming_left;
+	static audio_block_t *incoming_right;
+	static audio_block_t *ready_left;
+	static audio_block_t *ready_right;
 	static uint16_t incoming_count;
 	static uint8_t receive_flag;
+#endif 
 };
 
 class AudioOutputUSB : public AudioStream
