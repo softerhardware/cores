@@ -60,6 +60,8 @@ uint32_t feedback_accumulator;
 volatile uint32_t usb_audio_underrun_count = 0;
 volatile uint32_t usb_audio_overrun_count = 0;
 
+volatile int16_t buffer_counter = 0;
+
 static void rx_event(transfer_t *t)
 {
 	if (t) {
@@ -218,6 +220,7 @@ void usb_audio_receive_callback(unsigned int len)
 		avail = AUDIO_BLOCK_SAMPLES - write_count;
 		if (len < avail) {
 			copy_to_buffers(data, left->data + write_count, right->data + write_count, len);
+                        buffer_counter += len;
 			write_count = write_count + len;
 
 			// Check for near overrun condition
@@ -232,6 +235,7 @@ void usb_audio_receive_callback(unsigned int len)
 
 		} else if (avail > 0) {
 			copy_to_buffers(data, left->data + write_count, right->data + write_count, avail);
+                        buffer_counter += avail;
 			data += avail;
 			len -= avail;
 
@@ -299,6 +303,8 @@ void AudioInputUSB::update(void)
 	ready_left[read_index] = NULL;
 	right = ready_right[read_index];
 	ready_right[read_index] = NULL;
+        if (left && right) buffer_counter -= AUDIO_BLOCK_SAMPLES;
+        uint16_t local_buf_cnt = buffer_counter;
 
 	uint32_t frames_counted = usb_audio_frames_counted;
 	uint16_t to_remove;
@@ -322,11 +328,19 @@ void AudioInputUSB::update(void)
 	// feedback control loop
 	//
 	static uint16_t debug=0;
+        static uint16_t min_buf=9999;
+        static uint16_t max_buf=0;
 
+        if (buffer_counter > max_buf) max_buf=local_buf_cnt;
+        if (buffer_counter < min_buf) min_buf=local_buf_cnt;
 	if (++debug > 1500) {
 		debug=0;
 		Serial.print("Corr= ");
 		Serial.print(feedback_accumulator*0.00005960464477539063);
+                Serial.print(" Min=");
+                Serial.print(min_buf);
+                Serial.print(" Max=");
+                Serial.print(max_buf);
 		Serial.print(" O");
 		Serial.print(usb_audio_overrun_count);
 		Serial.print(" NO");
@@ -335,6 +349,8 @@ void AudioInputUSB::update(void)
 		Serial.print(usb_audio_underrun_count);
 		Serial.print(" NU");
 		Serial.println(usb_audio_near_underrun_count);
+                min_buf=9999;
+                max_buf=0;
 	}
 #endif
 
@@ -343,6 +359,9 @@ void AudioInputUSB::update(void)
 	feedback_accumulator = usb_audio_samples_consumed / frames_counted;
 	usb_audio_samples_consumed -= uint64_t(uint64_t(feedback_accumulator) * uint32_t(to_remove));
 
+        // adjust speed if close to low or high water mark
+        if (local_buf_cnt < (1*(USB_AUDIO_INPUT_BUFFERS+1)*AUDIO_BLOCK_SAMPLES)/4) feedback_accumulator += 16772;
+        if (local_buf_cnt > (3*(USB_AUDIO_INPUT_BUFFERS+1)*AUDIO_BLOCK_SAMPLES)/4) feedback_accumulator -= 16772;
 	// Check for out of range rates
 	if ((feedback_accumulator > USB_AUDIO_FEEDBACK_MAX) || (feedback_accumulator < USB_AUDIO_FEEDBACK_MIN)) {
 		rate_errors++;
