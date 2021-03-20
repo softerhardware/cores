@@ -131,7 +131,7 @@ static const uint32_t USB_AUDIO_FEEDBACK_SOF_MAX = 480000;
 static const uint16_t USB_AUDIO_INPUT_BUFFERS=4;
 
 // Limit for near under/over run to start adjusting clock
-static const uint16_t USB_AUDIO_GUARD_RAIL=4;
+//static const uint16_t USB_AUDIO_GUARD_RAIL=4;
 
 #ifdef USB_AUDIO_48KHZ	
 static const uint32_t USB_AUDIO_FEEDBACK_INIT = 805306368; // 48 * 2^24
@@ -150,8 +150,8 @@ static volatile uint16_t write_index = 0;
 static volatile uint16_t read_index = 0;
 static volatile uint16_t write_count = 0;
 
-static uint32_t usb_audio_near_overrun_count = 0;
-static uint32_t usb_audio_near_underrun_count = 0;
+//static uint32_t usb_audio_near_overrun_count = 0;
+//static uint32_t usb_audio_near_underrun_count = 0;
 
 static volatile uint64_t usb_audio_samples_consumed = 0;
 static volatile uint32_t usb_audio_frames_counted = 0;
@@ -171,13 +171,15 @@ void usb_audio_configure(void)
 		ready_left[i] = NULL;
 	}
 
-	if (usb_high_speed) {
-		usb_audio_sync_nbytes = 4;
-		usb_audio_sync_rshift = 8;
-	} else {
+	// Microsoft windows still expects 10.14 when UAC1 even at high speed
+	// Linux accepts this too
+	//if (usb_high_speed) {
+	//	usb_audio_sync_nbytes = 4;
+	//	usb_audio_sync_rshift = 8;
+	//} else {
 		usb_audio_sync_nbytes = 3;
 		usb_audio_sync_rshift = 10;
-	}
+	//}
 	memset(&rx_transfer, 0, sizeof(rx_transfer));
 	usb_config_rx_iso(AUDIO_RX_ENDPOINT, AUDIO_RX_SIZE, 1, rx_event);
 	rx_event(NULL);
@@ -228,22 +230,22 @@ void usb_audio_receive_callback(unsigned int len)
 		avail = AUDIO_BLOCK_SAMPLES - write_count;
 		if (len < avail) {
 			copy_to_buffers(data, left->data + write_count, right->data + write_count, len);
-                        buffer_counter += len;
+			buffer_counter += len;
 			write_count = write_count + len;
 
 			// Check for near overrun condition
-			if ((avail - len) >= USB_AUDIO_GUARD_RAIL) return;
+			//if ((avail - len) >= USB_AUDIO_GUARD_RAIL) return;
 
-			// Within guard rail so check if possible to send now
-			if (ready_left[write_index] || ready_right[write_index]) {
-				usb_audio_near_overrun_count++;
-				usb_audio_samples_consumed -= uint64_t(usb_audio_samples_consumed >> 25);
-			}
+			//// Within guard rail so check if possible to send now
+			//if (ready_left[write_index] || ready_right[write_index]) {
+			//	usb_audio_near_overrun_count++;
+			//	usb_audio_samples_consumed -= uint64_t(usb_audio_samples_consumed >> 25);
+			//}
 			return;
 
 		} else if (avail > 0) {
 			copy_to_buffers(data, left->data + write_count, right->data + write_count, avail);
-                        buffer_counter += avail;
+			buffer_counter += avail;
 			data += avail;
 			len -= avail;
 
@@ -252,13 +254,14 @@ void usb_audio_receive_callback(unsigned int len)
 				write_count = write_count + avail;
 				if (len > 0) {
 					usb_audio_overrun_count++;
-					usb_audio_samples_consumed -= uint64_t(usb_audio_samples_consumed >> 25);
+					//usb_audio_samples_consumed -= uint64_t(usb_audio_samples_consumed >> 25);
 
-				} else {
+				} 
+				//else {
 					// Exactly enough space so near overrun
-					usb_audio_near_overrun_count++;
-					usb_audio_samples_consumed -= uint64_t(usb_audio_samples_consumed >> 25);
-				}
+				//	usb_audio_near_overrun_count++;
+				//	usb_audio_samples_consumed -= uint64_t(usb_audio_samples_consumed >> 25);
+				//}
 				return;
 			}
 			
@@ -311,8 +314,8 @@ void AudioInputUSB::update(void)
 	ready_left[read_index] = NULL;
 	right = ready_right[read_index];
 	ready_right[read_index] = NULL;
-        if (left && right) buffer_counter -= AUDIO_BLOCK_SAMPLES;
-        uint16_t local_buf_cnt = buffer_counter;
+	if (left && right) buffer_counter -= AUDIO_BLOCK_SAMPLES;
+	uint16_t local_buf_cnt = buffer_counter;
 
 	uint32_t frames_counted = usb_audio_frames_counted;
 	uint16_t to_remove;
@@ -327,7 +330,7 @@ void AudioInputUSB::update(void)
 	__enable_irq();
 
 
-#if 1
+#if 0
 	//
 	// This prints out the actual value of the feedback
 	// correction (converted to Hz) and the min and max
@@ -336,29 +339,29 @@ void AudioInputUSB::update(void)
 	// feedback control loop
 	//
 	static uint16_t debug=0;
-        static uint16_t min_buf=9999;
-        static uint16_t max_buf=0;
-        if (local_buf_cnt > max_buf) max_buf=local_buf_cnt;
-        if (local_buf_cnt < min_buf) min_buf=local_buf_cnt;
+	static uint16_t min_buf=9999;
+	static uint16_t max_buf=0;
+	if (local_buf_cnt > max_buf) max_buf=local_buf_cnt;
+	if (local_buf_cnt < min_buf) min_buf=local_buf_cnt;
 
 	if (++debug > 1500) {
 		debug=0;
 		Serial.print("SOF: Corr= ");
 		Serial.print(feedback_accumulator*0.00005960464477539063);
-                Serial.print(" MinBuf=");
-                Serial.print(min_buf);
-                Serial.print(" MaxBuf=");
-                Serial.print(max_buf);
+		Serial.print(" MinBuf=");
+		Serial.print(min_buf);
+		Serial.print(" MaxBuf=");
+		Serial.print(max_buf);
 		Serial.print(" O");
 		Serial.print(usb_audio_overrun_count);
-		Serial.print(" NO");
-		Serial.print(usb_audio_near_overrun_count);
+		//Serial.print(" NO");
+		//Serial.print(usb_audio_near_overrun_count);
 		Serial.print(" U");
-		Serial.print(usb_audio_underrun_count);
-		Serial.print(" NU");
-		Serial.println(usb_audio_near_underrun_count);
-                min_buf=9999;
-                max_buf=0;
+		Serial.println(usb_audio_underrun_count);
+		//Serial.print(" NU");
+		//Serial.println(usb_audio_near_underrun_count);
+		min_buf=9999;
+		max_buf=0;
 	}
 #endif
 
@@ -367,9 +370,9 @@ void AudioInputUSB::update(void)
 	feedback_accumulator = usb_audio_samples_consumed / frames_counted;
 	usb_audio_samples_consumed -= uint64_t(uint64_t(feedback_accumulator) * uint32_t(to_remove));
 
-        // adjust speed if close to low or high water mark
-        if (local_buf_cnt < (1*(USB_AUDIO_INPUT_BUFFERS+1)*AUDIO_BLOCK_SAMPLES)/4) feedback_accumulator += 16772;
-        if (local_buf_cnt > (3*(USB_AUDIO_INPUT_BUFFERS+1)*AUDIO_BLOCK_SAMPLES)/4) feedback_accumulator -= 16772;
+	// adjust speed if close to low or high water mark
+	if (local_buf_cnt < (1*(USB_AUDIO_INPUT_BUFFERS+1)*AUDIO_BLOCK_SAMPLES)/4) feedback_accumulator += 16772;
+	if (local_buf_cnt > (3*(USB_AUDIO_INPUT_BUFFERS+1)*AUDIO_BLOCK_SAMPLES)/4) feedback_accumulator -= 16772;
 	// Check for out of range rates
 	if ((feedback_accumulator > USB_AUDIO_FEEDBACK_MAX) || (feedback_accumulator < USB_AUDIO_FEEDBACK_MIN)) {
 		rate_errors++;
@@ -393,14 +396,15 @@ void AudioInputUSB::update(void)
 	if (!left || !right) {
 		usb_audio_underrun_count++;
 		// Don't adjust samples here as when there is no audio for host there will be underruns
-	} else if (next_read_index == local_write_index) {
-		// Next buffers are being filled, check incoming count
-		if (local_write_count <= USB_AUDIO_GUARD_RAIL) {
-			usb_audio_near_underrun_count++;
-			// Local clock is running faster so speed up relation
-			usb_audio_samples_consumed += uint64_t(usb_audio_samples_consumed >> 25);
-		}
-	}
+	} 
+	//else if (next_read_index == local_write_index) {
+	//	// Next buffers are being filled, check incoming count
+	//	if (local_write_count <= USB_AUDIO_GUARD_RAIL) {
+	//		usb_audio_near_underrun_count++;
+	//		// Local clock is running faster so speed up relation
+	//		usb_audio_samples_consumed += uint64_t(usb_audio_samples_consumed >> 25);
+	//	}
+	//}
 
 	if (left) {
 		read_index = next_read_index;
@@ -460,40 +464,40 @@ static volatile uint16_t write_count = 0;
 
 void usb_audio_configure(void)
 {
-        feedback_accumulator = USB_AUDIO_FEEDBACK_INIT;
+		feedback_accumulator = USB_AUDIO_FEEDBACK_INIT;
 
-        for (uint16_t i = 0; i<USB_AUDIO_INPUT_BUFFERS; i++) {
-                ready_right_queue[i] = NULL;
-                ready_left_queue[i] = NULL;
-        }
+		for (uint16_t i = 0; i<USB_AUDIO_INPUT_BUFFERS; i++) {
+				ready_right_queue[i] = NULL;
+				ready_left_queue[i] = NULL;
+		}
 
-        if (usb_high_speed) {
-                usb_audio_sync_nbytes = 4;
-                usb_audio_sync_rshift = 8;
-        } else {
-                usb_audio_sync_nbytes = 3;
-                usb_audio_sync_rshift = 10;
-        }
-        memset(&rx_transfer, 0, sizeof(rx_transfer));
-        usb_config_rx_iso(AUDIO_RX_ENDPOINT, AUDIO_RX_SIZE, 1, rx_event);
-        rx_event(NULL);
-        memset(&sync_transfer, 0, sizeof(sync_transfer));
-        usb_config_tx_iso(AUDIO_SYNC_ENDPOINT, usb_audio_sync_nbytes, 1, sync_event);
-        sync_event(NULL);
-        memset(&tx_transfer, 0, sizeof(tx_transfer));
-        usb_config_tx_iso(AUDIO_TX_ENDPOINT, AUDIO_TX_SIZE, 1, tx_event);
-        tx_event(NULL);
-        usb_start_sof_interrupts(AUDIO_INTERFACE);
+		if (usb_high_speed) {
+				usb_audio_sync_nbytes = 4;
+				usb_audio_sync_rshift = 8;
+		} else {
+				usb_audio_sync_nbytes = 3;
+				usb_audio_sync_rshift = 10;
+		}
+		memset(&rx_transfer, 0, sizeof(rx_transfer));
+		usb_config_rx_iso(AUDIO_RX_ENDPOINT, AUDIO_RX_SIZE, 1, rx_event);
+		rx_event(NULL);
+		memset(&sync_transfer, 0, sizeof(sync_transfer));
+		usb_config_tx_iso(AUDIO_SYNC_ENDPOINT, usb_audio_sync_nbytes, 1, sync_event);
+		sync_event(NULL);
+		memset(&tx_transfer, 0, sizeof(tx_transfer));
+		usb_config_tx_iso(AUDIO_TX_ENDPOINT, AUDIO_TX_SIZE, 1, tx_event);
+		tx_event(NULL);
+		usb_start_sof_interrupts(AUDIO_INTERFACE);
 }
 
 void AudioInputUSB::begin(void)
 {
-        // update_responsibility = update_setup();
-        // TODO: update responsibility is tough, partly because the USB
-        // interrupts aren't sychronous to the audio library block size,
-        // but also because the PC may stop transmitting data, which
-        // means we no longer get receive callbacks from usb.c
-        update_responsibility = false;
+		// update_responsibility = update_setup();
+		// TODO: update responsibility is tough, partly because the USB
+		// interrupts aren't sychronous to the audio library block size,
+		// but also because the PC may stop transmitting data, which
+		// means we no longer get receive callbacks from usb.c
+		update_responsibility = false;
 }
 
 // Called from the USB interrupt when an isochronous packet arrives
@@ -509,20 +513,20 @@ void usb_audio_receive_callback(unsigned int len)
 	len >>= 2; // 1 sample = 4 bytes: 2 left, 2 right
 	data = (const uint32_t *)rx_buffer;
 
-        speed_counter += len;      // DL1YCF: counts *all* incoming samples
-        time_last_rx = micros();   //         time of last RX callback
-        input_active=3;            //         mark interface "up and running"
-        if (powerup_counter > 0) powerup_counter--;
+		speed_counter += len;      // DL1YCF: counts *all* incoming samples
+		time_last_rx = micros();   //         time of last RX callback
+		input_active=3;            //         mark interface "up and running"
+		if (powerup_counter > 0) powerup_counter--;
 
 
 	if (left == NULL) {
 		left = AudioStream::allocate();
-                write_count=0;
+				write_count=0;
 		if (left == NULL) return;
 	}
 	if (right == NULL) {
 		right = AudioStream::allocate();
-                write_count=0;
+				write_count=0;
 		if (right == NULL) return;
 	}
 
@@ -530,63 +534,63 @@ void usb_audio_receive_callback(unsigned int len)
 
 		avail = AUDIO_BLOCK_SAMPLES - write_count;
 		if (len < avail) {
-                        //
-                        // less samples to store than left in the "incoming" buffer.
-                        // so copy them and return
-                        //
+						//
+						// less samples to store than left in the "incoming" buffer.
+						// so copy them and return
+						//
 			copy_to_buffers(data, left->data + write_count, right->data + write_count, len);
-                        buffer_counter += len;
+			buffer_counter += len;
 			write_count = write_count + len;
 			return;
 		} else {
-                    if (avail > 0) {
-                        //
-                        // There is still space in the incoming buffer, so make it full
-                        // and transfer it to the "ready" queue (if space available)
-                        //
+					if (avail > 0) {
+						//
+						// There is still space in the incoming buffer, so make it full
+						// and transfer it to the "ready" queue (if space available)
+						//
 			copy_to_buffers(data, left->data + write_count, right->data + write_count, avail);
-                        buffer_counter += avail;
-                        write_count += avail;
+			buffer_counter += avail;
+			write_count += avail;
 			data += avail;
 			len -= avail;
-                    }
-                    //
-                    // At this point, the incoming buffer is full
-                    //
-                    if (ready_left_queue[write_index] || ready_right_queue[write_index]) {
-                        //
-                        // No space in "ready" queue
+					}
+					//
+					// At this point, the incoming buffer is full
+					//
+					if (ready_left_queue[write_index] || ready_right_queue[write_index]) {
+						//
+						// No space in "ready" queue
 			// (PC sending too fast). Return and try to send the buffer
-                        // in the next RX callback.
-                        //
+						// in the next RX callback.
+						//
 			if (len > 0) {
 			  usb_audio_overrun_count++;
 			}
 			return;
-                    }
-                    //
-                    // Transfer the (full) incoming buffer to the ready queue
-                    // and cycle
-                    //
-		    ready_left_queue[write_index] = left;
-		    ready_right_queue[write_index] = right;
-                    write_index++;
-		    if (write_index >= USB_AUDIO_INPUT_BUFFERS) write_index = 0;
-                    //
-                    // allocate new "incoming" buffer and set count to zero
-                    //
-		    write_count = 0;
-		    left = AudioStream::allocate();
-		    if (left == NULL) {
+					}
+					//
+					// Transfer the (full) incoming buffer to the ready queue
+					// and cycle
+					//
+			ready_left_queue[write_index] = left;
+			ready_right_queue[write_index] = right;
+					write_index++;
+			if (write_index >= USB_AUDIO_INPUT_BUFFERS) write_index = 0;
+					//
+					// allocate new "incoming" buffer and set count to zero
+					//
+			write_count = 0;
+			left = AudioStream::allocate();
+			if (left == NULL) {
 			return;
-		    }
-		    right = AudioStream::allocate();
-		    if (right == NULL) {
+			}
+			right = AudioStream::allocate();
+			if (right == NULL) {
 			AudioStream::release(left);
 			return;
-		    }
+			}
 		}
-                // continue with "while" until all samples stored or overrun detected
+				// continue with "while" until all samples stored or overrun detected
 	} // while
 }
 
@@ -600,59 +604,59 @@ void AudioInputUSB::update(void)
 	ready_left_queue[read_index] = NULL;
 	right = ready_right_queue[read_index];
 	ready_right_queue[read_index] = NULL;
-        if (left) buffer_counter -= AUDIO_BLOCK_SAMPLES;
-        uint16_t local_buf_cnt = buffer_counter;
+		if (left) buffer_counter -= AUDIO_BLOCK_SAMPLES;
+		uint16_t local_buf_cnt = buffer_counter;
 
-        if (input_active > 0) input_active--;
-        //
-        // local_speed: "current speed difference", the number of samples received
-        // in the receive callback since the last update(),
-        // minus the size of samples passed downstream this each update()
-        //
-        int16_t   local_speed = speed_counter - AUDIO_BLOCK_SAMPLES;
-        uint32_t  now   = micros();
-        int16_t   yet_unsent;
+		if (input_active > 0) input_active--;
+		//
+		// local_speed: "current speed difference", the number of samples received
+		// in the receive callback since the last update(),
+		// minus the size of samples passed downstream this each update()
+		//
+		int16_t   local_speed = speed_counter - AUDIO_BLOCK_SAMPLES;
+		uint32_t  now   = micros();
+		int16_t   yet_unsent;
 
-        if (now > time_last_rx && input_active > 0) {
+		if (now > time_last_rx && input_active > 0) {
 
 #ifdef USB_AUDIO_48KHZ
-          yet_unsent = (49*(now-time_last_rx)) >> 10;  // 48k  = 20.833 usec per sample
+		  yet_unsent = (49*(now-time_last_rx)) >> 10;  // 48k  = 20.833 usec per sample
 #else
-          yet_unsent = (45*(now-time_last_rx)) >> 10;  // 44k1 = 22.676 usec per sample
+		  yet_unsent = (45*(now-time_last_rx)) >> 10;  // 44k1 = 22.676 usec per sample
 #endif
-          //
-          // yet_unsent is now the (approximate) number of samples in the
-          // "input queue" but not yet sent. This number is close to
-          // zero if the last receive callback took place just few
-          // microseconds ago and approaches the number of samples
-          // transmitted in each RX callback if it took place
-          // immedeately after the preceeding update().
-          //
-          // The number need not be overly accurate and leads to a
-          // "flattening" of local_speed, which now  mostly assumes one of the
-          // values {-1, 0, 1} instead of oscillating wildly.
-          // Note its time average is left unchanged!
-          // time average of d is not changed!
-          //
-          speed_counter   = -yet_unsent;
-        } else {
-          //
-          // now < time_last_rx :  32-bit timer overrun, happens every 70 hours
-          // input_active == 0     :  audio interface closed
-          //
-          // so switch off and restart the feedback correction
-          //
-          speed_counter = 0;
-          yet_unsent=0;     // will be out-of-bounds in case of 32-bit overrun
-        }
+		  //
+		  // yet_unsent is now the (approximate) number of samples in the
+		  // "input queue" but not yet sent. This number is close to
+		  // zero if the last receive callback took place just few
+		  // microseconds ago and approaches the number of samples
+		  // transmitted in each RX callback if it took place
+		  // immedeately after the preceeding update().
+		  //
+		  // The number need not be overly accurate and leads to a
+		  // "flattening" of local_speed, which now  mostly assumes one of the
+		  // values {-1, 0, 1} instead of oscillating wildly.
+		  // Note its time average is left unchanged!
+		  // time average of d is not changed!
+		  //
+		  speed_counter   = -yet_unsent;
+		} else {
+		  //
+		  // now < time_last_rx :  32-bit timer overrun, happens every 70 hours
+		  // input_active == 0     :  audio interface closed
+		  //
+		  // so switch off and restart the feedback correction
+		  //
+		  speed_counter = 0;
+		  yet_unsent=0;     // will be out-of-bounds in case of 32-bit overrun
+		}
 
 	__enable_irq();
 
-        //
-        // This can be done after enabling interrupts
-        //
-        local_buf_cnt  +=  yet_unsent;
-        local_speed    +=  yet_unsent;
+		//
+		// This can be done after enabling interrupts
+		//
+		local_buf_cnt  +=  yet_unsent;
+		local_speed    +=  yet_unsent;
 #if 1
 	//
 	// This prints out the actual value of the feedback
@@ -663,65 +667,65 @@ void AudioInputUSB::update(void)
 	//
 	static uint16_t debug=0;
 
-        static uint16_t min_buf=9999;
-        static uint16_t max_buf=0;
-     
-        if (input_active == 0) {
-          // print "sanitized" values. These have no effect further down 
-          // if input_active is FALSE
-          local_speed = 0;
-          local_buf_cnt = 999;
-        }
-        if (local_buf_cnt > max_buf) max_buf=local_buf_cnt;
-        if (local_buf_cnt < min_buf) min_buf=local_buf_cnt;
+		static uint16_t min_buf=9999;
+		static uint16_t max_buf=0;
+	 
+		if (input_active == 0) {
+		  // print "sanitized" values. These have no effect further down 
+		  // if input_active is FALSE
+		  local_speed = 0;
+		  local_buf_cnt = 999;
+		}
+		if (local_buf_cnt > max_buf) max_buf=local_buf_cnt;
+		if (local_buf_cnt < min_buf) min_buf=local_buf_cnt;
 
-        static int16_t  min_speed=9999;
-        static int16_t  max_speed=-9999;
-        if (local_speed   > max_speed) max_speed=local_speed;
-        if (local_speed   < min_speed) min_speed=local_speed;
+		static int16_t  min_speed=9999;
+		static int16_t  max_speed=-9999;
+		if (local_speed   > max_speed) max_speed=local_speed;
+		if (local_speed   < min_speed) min_speed=local_speed;
 
 	if (++debug > 1500) {
 		debug=0;
 		Serial.print("Damp: Corr= ");
 		Serial.print(feedback_accumulator*0.00005960464477539063);
-                Serial.print(" MinBuf=");
-                Serial.print(min_buf);
-                Serial.print(" MaxBuf=");
-                Serial.print(max_buf);
-                Serial.print(" MinSpd=");
-                Serial.print(min_speed);
-                Serial.print(" MaxSpd=");
-                Serial.print(max_speed);
+		Serial.print(" MinBuf=");
+		Serial.print(min_buf);
+		Serial.print(" MaxBuf=");
+		Serial.print(max_buf);
+		Serial.print(" MinSpd=");
+		Serial.print(min_speed);
+		Serial.print(" MaxSpd=");
+		Serial.print(max_speed);
 		Serial.print(" O");
 		Serial.print(usb_audio_overrun_count);
 		Serial.print(" U");
 		Serial.println(usb_audio_underrun_count);
-                min_buf=9999;
-                max_buf=0;
-                min_speed=9999;
-                max_speed=-9999;
+		min_buf=9999;
+		max_buf=0;
+		min_speed=9999;
+		max_speed=-9999;
 
 	}
 #endif
 
-        if (input_active > 0 && powerup_counter == 0) {
-          //
-          // DL1YCF: new feedback "damped oscillator" correction
-          //         we keep it within Steve's safety margins but to not reset
-          //
-          feedback_accumulator += TARGET_BUFFER_FILLING - (int) local_buf_cnt - (DAMPING * local_speed);
-          if (feedback_accumulator > USB_AUDIO_FEEDBACK_MAX) feedback_accumulator=USB_AUDIO_FEEDBACK_MAX;
-          if (feedback_accumulator < USB_AUDIO_FEEDBACK_MIN) feedback_accumulator=USB_AUDIO_FEEDBACK_MIN;
-        }
+		if (input_active > 0 && powerup_counter == 0) {
+		  //
+		  // DL1YCF: new feedback "damped oscillator" correction
+		  //         we keep it within Steve's safety margins but to not reset
+		  //
+		  feedback_accumulator += TARGET_BUFFER_FILLING - (int) local_buf_cnt - (DAMPING * local_speed);
+		  if (feedback_accumulator > USB_AUDIO_FEEDBACK_MAX) feedback_accumulator=USB_AUDIO_FEEDBACK_MAX;
+		  if (feedback_accumulator < USB_AUDIO_FEEDBACK_MIN) feedback_accumulator=USB_AUDIO_FEEDBACK_MIN;
+		}
 
 	if (!left || !right) {
 		usb_audio_underrun_count++;
-        } else {
-          read_index +=1;
-          if (read_index >= USB_AUDIO_INPUT_BUFFERS) {
-            read_index=0;
-          }
-        }
+		} else {
+		  read_index +=1;
+		  if (read_index >= USB_AUDIO_INPUT_BUFFERS) {
+			read_index=0;
+		  }
+		}
 
 	if (left) {
 		transmit(left, 0);
@@ -1120,7 +1124,7 @@ unsigned int usb_audio_transmit_callback(void)
 
 struct setup_struct {
   union {
-    struct {
+	struct {
 	uint8_t bmRequestType;
 	uint8_t bRequest;
 	union {
@@ -1138,7 +1142,7 @@ struct setup_struct {
 		uint16_t wIndex;
 	};
 	uint16_t wLength;
-    };
+	};
   };
 };
 
