@@ -657,7 +657,7 @@ void AudioInputUSB::update(void)
 		//
 		local_buf_cnt  +=  yet_unsent;
 		local_speed    +=  yet_unsent;
-#if 1
+#if 0
 	//
 	// This prints out the actual value of the feedback
 	// correction (converted to Hz) and the min and max
@@ -889,7 +889,7 @@ void AudioInputUSB::update(void)
 	__enable_irq();
 
 
-#if 1
+#if 0
 	//
 	// This prints out the actual value of the feedback
 	// correction (converted to Hz) and the min and max
