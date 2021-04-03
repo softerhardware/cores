@@ -560,7 +560,7 @@ void usb_audio_receive_callback(unsigned int len)
 					if (ready_left_queue[write_index] || ready_right_queue[write_index]) {
 						//
 						// No space in "ready" queue
-			// (PC sending too fast). Return and try to send the buffer
+						// (PC sending too fast). Return and try to send the buffer
 						// in the next RX callback.
 						//
 			if (len > 0) {
@@ -965,14 +965,6 @@ void AudioInputUSB::update(void)
 
 
 
-#if 1
-bool AudioOutputUSB::update_responsibility;
-audio_block_t * AudioOutputUSB::left_1st;
-audio_block_t * AudioOutputUSB::left_2nd;
-audio_block_t * AudioOutputUSB::right_1st;
-audio_block_t * AudioOutputUSB::right_2nd;
-uint16_t AudioOutputUSB::offset_1st;
-
 /*DMAMEM*/ uint16_t usb_audio_transmit_buffer[AUDIO_TX_SIZE/2] __attribute__ ((used, aligned(32)));
 
 
@@ -985,14 +977,6 @@ static void tx_event(transfer_t *t)
 	usb_transmit(AUDIO_TX_ENDPOINT, &tx_transfer);
 }
 
-
-void AudioOutputUSB::begin(void)
-{
-	update_responsibility = false;
-	left_1st = NULL;
-	right_1st = NULL;
-}
-
 static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsigned int len)
 {
 	// TODO: optimize...
@@ -1000,6 +984,157 @@ static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsi
 		*dst++ = (*right++ << 16) | (*left++ & 0xFFFF);
 		len--;
 	}
+}
+
+bool AudioOutputUSB::update_responsibility;
+
+
+#if defined(USB_AUDIO_FEEDBACK_SOF)
+
+// Buffers
+static const uint16_t USB_AUDIO_OUTPUT_BUFFERS=4;
+
+
+// Static in this context (outside of a function) means the variable scope is this file only
+static audio_block_t *out_ready_left[USB_AUDIO_OUTPUT_BUFFERS];
+static audio_block_t *out_ready_right[USB_AUDIO_OUTPUT_BUFFERS];
+static volatile uint16_t out_write_index = 0;
+static volatile uint16_t out_read_index = 0;
+static volatile uint16_t out_read_count = 0;
+
+void AudioOutputUSB::begin(void)
+{
+	update_responsibility = false;
+}
+
+void AudioOutputUSB::update(void)
+{
+	audio_block_t *left, *right;
+	uint16_t i;
+
+	// TODO: we shouldn't be writing to these......
+	//left = receiveReadOnly(0); // input 0 = left channel
+	//right = receiveReadOnly(1); // input 1 = right channel
+	left = receiveWritable(0); // input 0 = left channel
+	right = receiveWritable(1); // input 1 = right channel
+	if (usb_audio_transmit_setting == 0) {
+		if (left) release(left);
+		if (right) release(right);
+		for (i = 0; i<USB_AUDIO_OUTPUT_BUFFERS; i++) {
+			left = out_ready_left[i];
+			if (left) { release(left); out_ready_left[i] = NULL; }
+			right = out_ready_right[i];
+			if (right) { release(right); out_ready_right[i] = NULL; }
+		}
+		return;
+	}
+	if (left == NULL) {
+		left = allocate();
+		if (left == NULL) {
+			if (right) release(right);
+			return;
+		}
+		memset(left->data, 0, sizeof(left->data));
+	}
+	if (right == NULL) {
+		right = allocate();
+		if (right == NULL) {
+			release(left);
+			return;
+		}
+		memset(right->data, 0, sizeof(right->data));
+	}
+	__disable_irq();
+	if (out_ready_left[out_write_index] || out_ready_right[out_write_index]) {
+		// Buffer overrun - PC is consuming too slowly
+		release(left);
+		release(right);
+	} else {
+		// Store in ring buffer
+		out_ready_left[out_write_index] = left;
+		out_ready_right[out_write_index] = right;
+
+		out_write_index++;
+		if (out_write_index >= USB_AUDIO_OUTPUT_BUFFERS) out_write_index = 0;
+	}
+	__enable_irq();
+}
+
+
+// Called from the USB interrupt when ready to transmit another
+// isochronous packet.  If we place data into the transmit buffer,
+// the return is the number of bytes.  Otherwise, return 0 means
+// no data to transmit
+unsigned int usb_audio_transmit_callback(void)
+{
+
+	uint32_t avail, num, target, offset, len=0;
+	audio_block_t *left, *right;
+
+#ifdef USB_AUDIO_48KHZ
+	target = 48;
+#else
+	static uint32_t count=5;
+	if (++count < 10) {   // TODO: dynamic adjust to match USB rate
+		target = 44;
+	} else {
+		count = 0;
+		target = 45;
+	}
+#endif
+
+	while (len < target) {
+
+		num = target - len;
+
+		left = out_ready_left[out_read_index];
+		right = out_ready_right[out_read_index];
+
+		if (left == NULL || right == NULL) {
+			// buffer underrun - PC is consuming too quickly
+			memset(usb_audio_transmit_buffer + len, 0, num * 4);
+			out_read_count = 0;
+			break;
+		}
+
+		avail = AUDIO_BLOCK_SAMPLES - out_read_count;
+		if (num > avail) num = avail;
+
+		copy_from_buffers((uint32_t *)usb_audio_transmit_buffer + len,
+			left->data + out_read_count, right->data + out_read_count, num);
+		len += num;
+		out_read_count += num;
+		if (out_read_count >= AUDIO_BLOCK_SAMPLES) {
+			out_ready_left[out_read_index] = NULL;
+			out_ready_right[out_read_index] = NULL;
+			AudioStream::release(left);
+			AudioStream::release(right);
+			out_read_count = 0;
+			out_read_index++;
+			if (out_read_index >= USB_AUDIO_OUTPUT_BUFFERS) out_read_index = 0;
+		}
+	}
+
+	return target * 4;
+}
+
+
+
+
+
+#else
+
+audio_block_t * AudioOutputUSB::left_1st;
+audio_block_t * AudioOutputUSB::left_2nd;
+audio_block_t * AudioOutputUSB::right_1st;
+audio_block_t * AudioOutputUSB::right_2nd;
+uint16_t AudioOutputUSB::offset_1st;
+
+void AudioOutputUSB::begin(void)
+{
+	update_responsibility = false;
+	left_1st = NULL;
+	right_1st = NULL;
 }
 
 void AudioOutputUSB::update(void)
@@ -1117,6 +1252,7 @@ unsigned int usb_audio_transmit_callback(void)
 	}
 	return target * 4;
 }
+
 #endif
 
 

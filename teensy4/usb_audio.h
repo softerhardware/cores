@@ -109,11 +109,14 @@ public:
 	friend unsigned int usb_audio_transmit_callback(void);
 private:
 	static bool update_responsibility;
+
+#if !defined(USB_AUDIO_FEEDBACK_SOF)	
 	static audio_block_t *left_1st;
 	static audio_block_t *left_2nd;
 	static audio_block_t *right_1st;
 	static audio_block_t *right_2nd;
 	static uint16_t offset_1st;
+#endif
 	audio_block_t *inputQueueArray[2];
 };
 #endif // __cplusplus
