@@ -308,8 +308,8 @@ void AudioInputUSB::update(void)
 
 	__disable_irq();
 
-	uint16_t local_write_index = write_index;
-	uint16_t local_write_count = write_count;
+	//uint16_t local_write_index = write_index;
+	//uint16_t local_write_count = write_count;
 	left = ready_left[read_index];
 	ready_left[read_index] = NULL;
 	right = ready_right[read_index];
@@ -991,6 +991,10 @@ bool AudioOutputUSB::update_responsibility;
 
 #if defined(USB_AUDIO_FEEDBACK_SOF)
 
+volatile uint32_t usb_audio_out_underrun_count = 0;
+volatile uint32_t usb_audio_out_overrun_count = 0;
+
+
 // Buffers
 static const uint16_t USB_AUDIO_OUTPUT_BUFFERS=4;
 
@@ -1001,6 +1005,8 @@ static audio_block_t *out_ready_right[USB_AUDIO_OUTPUT_BUFFERS];
 static volatile uint16_t out_write_index = 0;
 static volatile uint16_t out_read_index = 0;
 static volatile uint16_t out_read_count = 0;
+
+volatile int16_t out_buffer_counter = 0;  // used to monitor the current buffer filling
 
 void AudioOutputUSB::begin(void)
 {
@@ -1049,11 +1055,13 @@ void AudioOutputUSB::update(void)
 		// Buffer overrun - PC is consuming too slowly
 		release(left);
 		release(right);
+		usb_audio_out_overrun_count++;
 	} else {
 		// Store in ring buffer
 		out_ready_left[out_write_index] = left;
 		out_ready_right[out_write_index] = right;
 
+		out_buffer_counter += AUDIO_BLOCK_SAMPLES;
 		out_write_index++;
 		if (out_write_index >= USB_AUDIO_OUTPUT_BUFFERS) out_write_index = 0;
 	}
@@ -1072,14 +1080,51 @@ unsigned int usb_audio_transmit_callback(void)
 	audio_block_t *left, *right;
 
 #ifdef USB_AUDIO_48KHZ
-	target = 48;
+
+	// 1.5X48 samples buffered then send slower to build up samples
+	if (out_buffer_counter < 72 ) target = 47;
+	// BUFFERSPACE-(0.5*48) then send faster to clear buffer space
+	else if (out_buffer_counter > ((AUDIO_BLOCK_SAMPLES*USB_AUDIO_OUTPUT_BUFFERS)-24)) target = 49;
+	else target = 48;
+
 #else
 	static uint32_t count=5;
-	if (++count < 10) {   // TODO: dynamic adjust to match USB rate
-		target = 44;
+	if (++count < 10) {
+		// 1.5X44 samples buffered then send slower to build up samples
+		if (out_buffer_counter < 66 ) target = 43;
+		// BUFFERSPACE-(0.5*44) then send faster to clear buffer space
+		else if (out_buffer_counter > ((AUDIO_BLOCK_SAMPLES*USB_AUDIO_OUTPUT_BUFFERS)-22)) target = 45;
+		else target = 44;
 	} else {
 		count = 0;
 		target = 45;
+	}
+#endif
+
+
+#if 0
+	static uint16_t debug=0;
+	static uint16_t min_buf=9999;
+	static uint16_t max_buf=0;
+	if (out_buffer_counter > max_buf) max_buf=out_buffer_counter;
+	if (out_buffer_counter < min_buf) min_buf=out_buffer_counter;
+
+	if (++debug > 1500) {
+		debug=0;
+		Serial.print("SOF MinOutBuf=");
+		Serial.print(min_buf);
+		Serial.print(" MaxOutBuf=");
+		Serial.print(max_buf);
+		Serial.print(" O");
+		Serial.print(usb_audio_out_overrun_count);
+		//Serial.print(" NO");
+		//Serial.print(usb_audio_near_overrun_count);
+		Serial.print(" U");
+		Serial.println(usb_audio_out_underrun_count);
+		//Serial.print(" NU");
+		//Serial.println(usb_audio_near_underrun_count);
+		min_buf=9999;
+		max_buf=0;
 	}
 #endif
 
@@ -1094,6 +1139,7 @@ unsigned int usb_audio_transmit_callback(void)
 			// buffer underrun - PC is consuming too quickly
 			memset(usb_audio_transmit_buffer + len, 0, num * 4);
 			out_read_count = 0;
+			usb_audio_out_underrun_count++;
 			break;
 		}
 
@@ -1104,6 +1150,7 @@ unsigned int usb_audio_transmit_callback(void)
 			left->data + out_read_count, right->data + out_read_count, num);
 		len += num;
 		out_read_count += num;
+		out_buffer_counter -= num;
 		if (out_read_count >= AUDIO_BLOCK_SAMPLES) {
 			out_ready_left[out_read_index] = NULL;
 			out_ready_right[out_read_index] = NULL;
