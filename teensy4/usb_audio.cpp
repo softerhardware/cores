@@ -1026,13 +1026,13 @@ void AudioOutputUSB::update(void)
 	if (usb_audio_transmit_setting == 0) {
 		if (left) release(left);
 		if (right) release(right);
-		for (i = 0; i<USB_AUDIO_OUTPUT_BUFFERS; i++) {
-			left = out_ready_left[i];
-			if (left) { release(left); out_ready_left[i] = NULL; }
-			right = out_ready_right[i];
-			if (right) { release(right); out_ready_right[i] = NULL; }
-		}
-		out_buffer_counter = 0;
+		//for (i = 0; i<USB_AUDIO_OUTPUT_BUFFERS; i++) {
+		//	left = out_ready_left[i];
+		//	if (left) { release(left); out_ready_left[i] = NULL; }
+		//	right = out_ready_right[i];
+		//	if (right) { release(right); out_ready_right[i] = NULL; }
+		//}
+		//out_buffer_counter = 0;
 		return;
 	}
 	if (left == NULL) {
