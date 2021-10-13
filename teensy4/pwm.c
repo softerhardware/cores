@@ -80,7 +80,7 @@ const struct pwm_pin_info_struct pwm_pin_info[] = {
 	{1, M(3, 3), 2, 1},  // FlexPWM3_3_B  51  // EMC_22
 	{0, M(1, 0), 0, 0},  // duplicate FlexPWM1_1_B
 	{0, M(1, 0), 0, 0},  // duplicate FlexPWM1_1_A
-	{1, M(3, 0), 1, 1},  // FlexPWM3_0_A  53  // EMC_29
+	{1, M(3, 0), 1, 1},  // FlexPWM3_0_A  54  // EMC_29
 #endif
 #ifdef ARDUINO_TEENSY_MICROMOD
 	{1, M(1, 1), 2, 1},  // FlexPWM1_1_B  34  // SD_B0_03
@@ -111,7 +111,7 @@ const struct pwm_pin_info_struct pwm_pin_info[] = {
 //   FlexPWM3_0    PWM pin 53(T4.1)
 //   FlexPWM3_1    PWM pin 28, 29
 //   FlexPWM3_2
-//   FlexPWM3_3    PWM pin 41(T4.1)
+//   FlexPWM3_3    PWM pin 51(T4.1)
 //   FlexPWM4_0    PWM pin 22
 //   FlexPWM4_1    PWM pin 23
 //   FlexPWM4_2    PWM pin 2, 3

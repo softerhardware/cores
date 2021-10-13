@@ -143,10 +143,8 @@ public:
 	//unsigned char equals(const __FlashStringHelper *pgmstr) const;
 	unsigned char operator == (const String &rhs) const {return equals(rhs);}
 	unsigned char operator == (const char *cstr) const {return equals(cstr);}
-	unsigned char operator == (const __FlashStringHelper *s) const {return equals((const char *)s);}
 	unsigned char operator != (const String &rhs) const {return !equals(rhs);}
 	unsigned char operator != (const char *cstr) const {return !equals(cstr);}
-	unsigned char operator != (const __FlashStringHelper *s) const {return !equals(s);}
 	unsigned char operator <  (const String &rhs) const;
 	unsigned char operator >  (const String &rhs) const;
 	unsigned char operator <= (const String &rhs) const;
@@ -168,6 +166,13 @@ public:
 		if (!buffer) return &zerotermination; // https://forum.pjrc.com/threads/63842
 		return buffer;
 	}
+	char * begin() {
+		if (!buffer) reserve(20);
+		return buffer;
+	}
+	char * end() { return begin() + length(); }
+	const char * begin() const { return c_str(); }
+	const char * end() const { return c_str() + length(); }
 
 	// search
 	int indexOf( char ch ) const;

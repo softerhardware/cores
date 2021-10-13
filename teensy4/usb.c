@@ -62,7 +62,7 @@ struct endpoint_struct {
 uint8_t experimental_buffer[1152] __attribute__ ((section(".dmabuffers"), aligned(64)));
 #endif
 
-endpoint_t endpoint_queue_head[(NUM_ENDPOINTS+1)*2] __attribute__ ((used, aligned(4096)));
+endpoint_t endpoint_queue_head[(NUM_ENDPOINTS+1)*2] __attribute__ ((used, aligned(4096), section(".endpoint_queue") ));
 
 transfer_t endpoint0_transfer_data __attribute__ ((used, aligned(32)));
 transfer_t endpoint0_transfer_ack  __attribute__ ((used, aligned(32)));
@@ -105,7 +105,7 @@ extern const uint8_t usb_config_descriptor_12[];
 void (*usb_timer0_callback)(void) = NULL;
 void (*usb_timer1_callback)(void) = NULL;
 
-static void isr(void);
+void usb_isr(void);
 static void endpoint0_setup(uint64_t setupdata);
 static void endpoint0_transmit(const void *data, uint32_t len, int notify);
 static void endpoint0_receive(void *data, uint32_t len, int notify);
@@ -198,8 +198,8 @@ FLASHMEM void usb_init(void)
 	// Port Change Detect, USB Reset Received, DCSuspend.
 	USB1_USBINTR = USB_USBINTR_UE | USB_USBINTR_UEE | /* USB_USBINTR_PCE | */
 		USB_USBINTR_URE | USB_USBINTR_SLE;
-	//_VectorsRam[IRQ_USB1+16] = &isr;
-	attachInterruptVector(IRQ_USB1, &isr);
+	//_VectorsRam[IRQ_USB1+16] = &usb_isr;
+	attachInterruptVector(IRQ_USB1, &usb_isr);
 	NVIC_ENABLE_IRQ(IRQ_USB1);
 	//printf("USB1_ENDPTCTRL0=%08lX\n", USB1_ENDPTCTRL0);
 	//printf("USB1_ENDPTCTRL1=%08lX\n", USB1_ENDPTCTRL1);
@@ -212,7 +212,26 @@ FLASHMEM void usb_init(void)
 }
 
 
-static void isr(void)
+FLASHMEM void _reboot_Teensyduino_(void)
+{
+	if (!(HW_OCOTP_CFG5 & 0x02)) {
+		asm("bkpt #251"); // run bootloader
+	} else {
+		__disable_irq(); // secure mode NXP ROM reboot
+		USB1_USBCMD = 0;
+		IOMUXC_GPR_GPR16 = 0x00200003;
+		// TODO: wipe all RAM for security
+		__asm__ volatile("mov sp, %0" : : "r" (0x20201000) : );
+		__asm__ volatile("dsb":::"memory");
+		volatile uint32_t * const p = (uint32_t *)0x20208000;
+		*p = 0xEB120000;
+		((void (*)(volatile void *))(*(uint32_t *)(*(uint32_t *)0x0020001C + 8)))(p);
+	}
+	__builtin_unreachable();
+}
+
+
+void usb_isr(void)
 {
 	//printf("*");
 
@@ -338,7 +357,7 @@ static void isr(void)
 		if (usb_reboot_timer) {
 			if (--usb_reboot_timer == 0) {
 				usb_stop_sof_interrupts(NUM_INTERFACE);
-				asm("bkpt #251"); // run bootloader
+				_reboot_Teensyduino_();
 			}
 		}
 		#if defined(AUDIO_INTERFACE) && defined(USB_AUDIO_FEEDBACK_SOF)
@@ -800,7 +819,7 @@ static void endpoint0_complete(void)
 	}
 #endif
 #ifdef AUDIO_INTERFACE
-	if (setup.word1 == 0x02010121 /* TODO: check setup.word2 */) {
+	if (setup.word1 == 0x02010121 || setup.word1 == 0x01000121 /* TODO: check setup.word2 */) {
 		usb_audio_set_feature(&endpoint0_setupdata, endpoint0_buffer);
 	}
 #endif

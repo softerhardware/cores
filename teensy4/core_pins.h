@@ -2295,6 +2295,9 @@ static inline void analogReadResolution(unsigned int bits) { analogReadRes(bits)
 void analogReadAveraging(unsigned int num);
 void analog_init(void);
 int touchRead(uint8_t pin);
+uint32_t IMXRTfuseRead(volatile uint32_t *fuses);
+void IMXRTfuseWrite(volatile uint32_t *fuses, uint32_t value);
+void IMXRTfuseReload();
 
 static inline void shiftOut(uint8_t, uint8_t, uint8_t, uint8_t) __attribute__((always_inline, unused));
 extern void _shiftOut(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder, uint8_t value) __attribute__((noinline));
@@ -2391,6 +2394,19 @@ void tempmon_PwrDwn();
 
 #ifdef __cplusplus
 }
+
+// DateTimeFields follows C library "struct tm" convention, but uses much less memory
+typedef struct  {
+	uint8_t sec;   // 0-59
+	uint8_t min;   // 0-59
+	uint8_t hour;  // 0-23
+	uint8_t wday;  // 0-6, 0=sunday
+	uint8_t mday;  // 1-31
+	uint8_t mon;   // 0-11
+	uint8_t year;  // 70-206, 70=1970, 206=2106
+} DateTimeFields;
+void breakTime(uint32_t time, DateTimeFields &tm);  // break 32 bit time into DateTimeFields
+uint32_t makeTime(const DateTimeFields &tm); // convert DateTimeFields to 32 bit time
 
 class teensy3_clock_class
 {

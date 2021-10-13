@@ -332,10 +332,12 @@ enum IRQ_NUMBER_t {
 #define IMXRT_AIPSTZ4_ADDRESS		0x4037C000
 #define IMXRT_AOI1_ADDRESS		0x403B4000
 #define IMXRT_AOI2_ADDRESS		0x403B8000
+#define IMXRT_BEE_ADDRESS		0x403EC000
 #define IMXRT_CCM_ADDRESS		0x400FC000
 #define IMXRT_CCM_ANALOG_ADDRESS	0x400D8000
 #define IMXRT_CSI_ADDRESS		0x402BC000
 #define IMXRT_DCDC_ADDRESS		0x40080000
+#define IMXRT_DCP_ADDRESS		0x402FC000
 #define IMXRT_DMAMUX_ADDRESS		0x400EC000
 #define IMXRT_DMA_ADDRESS		0x400E8000
 #define IMXRT_ENC1_ADDRESS		0x403C8000
@@ -429,11 +431,11 @@ enum IRQ_NUMBER_t {
 
 
 #ifdef __cplusplus
-extern "C" void (* _VectorsRam[NVIC_NUM_INTERRUPTS+16])(void);
+extern "C" void (* volatile _VectorsRam[NVIC_NUM_INTERRUPTS+16])(void);
 static inline void attachInterruptVector(IRQ_NUMBER_t irq, void (*function)(void)) __attribute__((always_inline, unused));
 static inline void attachInterruptVector(IRQ_NUMBER_t irq, void (*function)(void)) { _VectorsRam[irq + 16] = function; asm volatile("": : :"memory"); }
 #else
-extern void (* _VectorsRam[NVIC_NUM_INTERRUPTS+16])(void);
+extern void (* volatile _VectorsRam[NVIC_NUM_INTERRUPTS+16])(void);
 static inline void attachInterruptVector(enum IRQ_NUMBER_t irq, void (*function)(void)) __attribute__((always_inline, unused));
 static inline void attachInterruptVector(enum IRQ_NUMBER_t irq, void (*function)(void)) { _VectorsRam[irq + 16] = function; asm volatile("": : :"memory"); }
 #endif
@@ -1631,7 +1633,7 @@ typedef struct {
 #define CCM_ANALOG_PLL_VIDEO_TOG	(IMXRT_CCM_ANALOG.offset0AC)
 #define CCM_ANALOG_PLL_VIDEO_NUM	(IMXRT_CCM_ANALOG.offset0B0)
 #define CCM_ANALOG_PLL_VIDEO_DENOM	(IMXRT_CCM_ANALOG.offset0C0)
-#define CCM_ANALOG_PLL_ENET		(IMXRT_CCM_ANALOG.offset0EC)
+#define CCM_ANALOG_PLL_ENET		(IMXRT_CCM_ANALOG.offset0E0)
 #define CCM_ANALOG_PLL_ENET_SET		(IMXRT_CCM_ANALOG.offset0E4)
 #define CCM_ANALOG_PLL_ENET_CLR		(IMXRT_CCM_ANALOG.offset0E8)
 #define CCM_ANALOG_PLL_ENET_TOG		(IMXRT_CCM_ANALOG.offset0EC)
@@ -7387,65 +7389,40 @@ typedef struct {
 #define HW_OCOTP_CFG4			(IMXRT_OCOTP_VALUE.offset050)
 #define HW_OCOTP_CFG5			(IMXRT_OCOTP_VALUE.offset060)
 #define HW_OCOTP_CFG6			(IMXRT_OCOTP_VALUE.offset070)
-#define HW_OCOTP_MEM0			(IMXRT_OCOTP_VALUE.offset080)
-#define HW_OCOTP_MEM1			(IMXRT_OCOTP_VALUE.offset090)
-#define HW_OCOTP_MEM2			(IMXRT_OCOTP_VALUE.offset0A0)
-#define HW_OCOTP_MEM3			(IMXRT_OCOTP_VALUE.offset0B0)
-#define HW_OCOTP_MEM4			(IMXRT_OCOTP_VALUE.offset0C0)
-#define HW_OCOTP_ANA0			(IMXRT_OCOTP_VALUE.offset0D0)
 #define HW_OCOTP_ANA1			(IMXRT_OCOTP_VALUE.offset0E0)
 #define HW_OCOTP_ANA2			(IMXRT_OCOTP_VALUE.offset0F0)
-#define HW_OCOTP_OTPMK0			(IMXRT_OCOTP_VALUE.offset100)
-#define HW_OCOTP_OTPMK1			(IMXRT_OCOTP_VALUE.offset110)
-#define HW_OCOTP_OTPMK2			(IMXRT_OCOTP_VALUE.offset120)
-#define HW_OCOTP_OTPMK3			(IMXRT_OCOTP_VALUE.offset130)
-#define HW_OCOTP_OTPMK4			(IMXRT_OCOTP_VALUE.offset140)
-#define HW_OCOTP_OTPMK5			(IMXRT_OCOTP_VALUE.offset150)
-#define HW_OCOTP_OTPMK6			(IMXRT_OCOTP_VALUE.offset160)
-#define HW_OCOTP_OTPMK7			(IMXRT_OCOTP_VALUE.offset170)
-#define HW_OCOTP_SRK0			(IMXRT_OCOTP_VALUE.offset180)
-#define HW_OCOTP_SRK1			(IMXRT_OCOTP_VALUE.offset190)
-#define HW_OCOTP_SRK2			(IMXRT_OCOTP_VALUE.offset1A0)
-#define HW_OCOTP_SRK3			(IMXRT_OCOTP_VALUE.offset1B0)
-#define HW_OCOTP_SRK4			(IMXRT_OCOTP_VALUE.offset1C0)
-#define HW_OCOTP_SRK5			(IMXRT_OCOTP_VALUE.offset1D0)
-#define HW_OCOTP_SRK6			(IMXRT_OCOTP_VALUE.offset1E0)
-#define HW_OCOTP_SRK7			(IMXRT_OCOTP_VALUE.offset1F0)
+#define HW_OCOTP_0x580			(IMXRT_OCOTP_VALUE.offset180)
+#define HW_OCOTP_0x590			(IMXRT_OCOTP_VALUE.offset190)
+#define HW_OCOTP_0x5A0			(IMXRT_OCOTP_VALUE.offset1A0)
+#define HW_OCOTP_0x5B0			(IMXRT_OCOTP_VALUE.offset1B0)
+#define HW_OCOTP_0x5C0			(IMXRT_OCOTP_VALUE.offset1C0)
+#define HW_OCOTP_0x5D0			(IMXRT_OCOTP_VALUE.offset1D0)
+#define HW_OCOTP_0x5E0			(IMXRT_OCOTP_VALUE.offset1E0)
+#define HW_OCOTP_0x5F0			(IMXRT_OCOTP_VALUE.offset1F0)
 #define HW_OCOTP_SJC_RESP0		(IMXRT_OCOTP_VALUE.offset200)
 #define HW_OCOTP_SJC_RESP1		(IMXRT_OCOTP_VALUE.offset210)
 #define HW_OCOTP_MAC0			(IMXRT_OCOTP_VALUE.offset220)
 #define HW_OCOTP_MAC1			(IMXRT_OCOTP_VALUE.offset230)
 #define HW_OCOTP_MAC2			(IMXRT_OCOTP_VALUE.offset240)
-#define HW_OCOTP_GP3			(IMXRT_OCOTP_VALUE.offset250) /* IMXRT1052 */
-#define HW_OCOTP_OTPMK_CRC32		(IMXRT_OCOTP_VALUE.offset250) /* IMXRT1062 */
 #define HW_OCOTP_GP1			(IMXRT_OCOTP_VALUE.offset260)
 #define HW_OCOTP_GP2			(IMXRT_OCOTP_VALUE.offset270)
 #define HW_OCOTP_SW_GP1			(IMXRT_OCOTP_VALUE.offset280)
-#define HW_OCOTP_SW_GP20		(IMXRT_OCOTP_VALUE.offset290)
-#define HW_OCOTP_SW_GP21		(IMXRT_OCOTP_VALUE.offset2A0)
-#define HW_OCOTP_SW_GP22		(IMXRT_OCOTP_VALUE.offset2B0)
-#define HW_OCOTP_SW_GP23		(IMXRT_OCOTP_VALUE.offset2C0)
+#define HW_OCOTP_0x690			(IMXRT_OCOTP_VALUE.offset290)
+#define HW_OCOTP_0x6A0			(IMXRT_OCOTP_VALUE.offset2A0)
+#define HW_OCOTP_0x6B0			(IMXRT_OCOTP_VALUE.offset2B0)
+#define HW_OCOTP_0x6C0			(IMXRT_OCOTP_VALUE.offset2C0)
 #define HW_OCOTP_MISC_CONF0		(IMXRT_OCOTP_VALUE.offset2D0)
 #define HW_OCOTP_MISC_CONF1		(IMXRT_OCOTP_VALUE.offset2E0)
-#define HW_OCOTP_SRK_REVOKE		(IMXRT_OCOTP_VALUE.offset2F0)
 #if defined(__IMXRT1062__)
 #define IMXRT_OCOTP_VALUE2	(*(IMXRT_REGISTER32_t *)(IMXRT_OCOTP_ADDRESS+0x800))
-#define HW_OCOTP_ROM_PATCH0		(IMXRT_OCOTP_VALUE2.offset000)
-#define HW_OCOTP_ROM_PATCH1		(IMXRT_OCOTP_VALUE2.offset010)
-#define HW_OCOTP_ROM_PATCH2		(IMXRT_OCOTP_VALUE2.offset020)
-#define HW_OCOTP_ROM_PATCH3		(IMXRT_OCOTP_VALUE2.offset030)
-#define HW_OCOTP_ROM_PATCH4		(IMXRT_OCOTP_VALUE2.offset040)
-#define HW_OCOTP_ROM_PATCH5		(IMXRT_OCOTP_VALUE2.offset050)
-#define HW_OCOTP_ROM_PATCH6		(IMXRT_OCOTP_VALUE2.offset060)
-#define HW_OCOTP_ROM_PATCH7		(IMXRT_OCOTP_VALUE2.offset070)
 #define HW_OCOTP_GP30			(IMXRT_OCOTP_VALUE2.offset080)
 #define HW_OCOTP_GP31			(IMXRT_OCOTP_VALUE2.offset090)
 #define HW_OCOTP_GP32			(IMXRT_OCOTP_VALUE2.offset0A0)
 #define HW_OCOTP_GP33			(IMXRT_OCOTP_VALUE2.offset0B0)
-#define HW_OCOTP_GP40			(IMXRT_OCOTP_VALUE2.offset0C0)
-#define HW_OCOTP_GP41			(IMXRT_OCOTP_VALUE2.offset0D0)
-#define HW_OCOTP_GP42			(IMXRT_OCOTP_VALUE2.offset0E0)
-#define HW_OCOTP_GP43			(IMXRT_OCOTP_VALUE2.offset0F0)
+#define HW_OCOTP_0x8C0			(IMXRT_OCOTP_VALUE2.offset0C0)
+#define HW_OCOTP_0x8D0			(IMXRT_OCOTP_VALUE2.offset0D0)
+#define HW_OCOTP_0x8E0			(IMXRT_OCOTP_VALUE2.offset0E0)
+#define HW_OCOTP_0x8F0			(IMXRT_OCOTP_VALUE2.offset0F0)
 #endif
 
 // 53.9.1: page 2978
@@ -8489,6 +8466,7 @@ typedef struct
 #define SRC_SBMR1			(IMXRT_SRC.offset004)
 #define SRC_SRSR			(IMXRT_SRC.offset008)
 #define SRC_SBMR2			(IMXRT_SRC.offset01C)
+#define SRC_GPR5			(IMXRT_SRC.offset030)
 /* 
 These register are used by the ROM code and should not be used by application software 
 #define SRC_GPR1			(IMXRT_SRC.offset020) 
@@ -8530,11 +8508,11 @@ These register are used by the ROM code and should not be used by application so
 #define TEMPMON_TEMPSENSE0          (IMXRT_TEMPMON.offset000)
 #define TEMPMON_TEMPSENSE0_SET		(IMXRT_TEMPMON.offset004)
 #define TEMPMON_TEMPSENSE0_CLR		(IMXRT_TEMPMON.offset008)
-#define TEMPMON_TEMPSENSE0_TOG		(IMXRT_TEMPMON.offset08c)
-#define TEMPMON_TEMPSENSE1		    (IMXRT_TEMPMON.offset090)
-#define TEMPMON_TEMPSENSE1_SET		(IMXRT_TEMPMON.offset094)
-#define TEMPMON_TEMPSENSE1_CLR		(IMXRT_TEMPMON.offset098)
-#define TEMPMON_TEMPSENSE1_TOG		(IMXRT_TEMPMON.offset09C)
+#define TEMPMON_TEMPSENSE0_TOG		(IMXRT_TEMPMON.offset00C)
+#define TEMPMON_TEMPSENSE1		    (IMXRT_TEMPMON.offset010)
+#define TEMPMON_TEMPSENSE1_SET		(IMXRT_TEMPMON.offset014)
+#define TEMPMON_TEMPSENSE1_CLR		(IMXRT_TEMPMON.offset018)
+#define TEMPMON_TEMPSENSE1_TOG		(IMXRT_TEMPMON.offset01C)
 #define TEMPMON_TEMPSENSE2		    (IMXRT_TEMPMON.offset110)
 #define TEMPMON_TEMPSENSE2_SET		(IMXRT_TEMPMON.offset114)
 #define TEMPMON_TEMPSENSE2_CLR		(IMXRT_TEMPMON.offset118)
@@ -8659,6 +8637,63 @@ These register are used by the ROM code and should not be used by application so
 #define TRNG_DEFAULT_POKER_MINIMUM	(TRNG_DEFAULT_POKER_MAXIMUM - 2467)
 #define TRNG_DEFAULT_FREQUENCY_MAXIMUM	25600
 #define TRNG_DEFAULT_FREQUENCY_MINIMUM	1600
+
+
+// BEE definitions adapted from NXP SDK 2.8.0, MIMXRT1062.h, lines 3131-3430
+//  For BEE documentation & example code, see NXP Application Note 12852.
+//  To encrypt data for use with BEE, look for NXP's image_enc.exe program.
+//  Partial source code for image_enc.exe can be found in this zip archive:
+//   image_enc.zip  sha256sum 6856a757fb0a9e13e926e8d461e23863d78568acebb81b6f361650ea4e050a03
+//   https://community.nxp.com/t5/i-MX-RT/image-enc2-zip-download/m-p/1174943#M10980
+#define IMXRT_BEE		(*(IMXRT_REGISTER32_t *)IMXRT_BEE_ADDRESS)
+#define BEE_CTRL			(IMXRT_BEE.offset000)
+#define BEE_ADDR_OFFSET0		(IMXRT_BEE.offset004)
+#define BEE_ADDR_OFFSET1		(IMXRT_BEE.offset008)
+#define BEE_AES_KEY0_W0			(IMXRT_BEE.offset00C)
+#define BEE_AES_KEY0_W1			(IMXRT_BEE.offset010)
+#define BEE_AES_KEY0_W2			(IMXRT_BEE.offset014)
+#define BEE_AES_KEY0_W3			(IMXRT_BEE.offset018)
+#define BEE_STATUS			(IMXRT_BEE.offset01C)
+#define BEE_CTR_NONCE0_W0		(IMXRT_BEE.offset020)
+#define BEE_CTR_NONCE0_W1		(IMXRT_BEE.offset024)
+#define BEE_CTR_NONCE0_W2		(IMXRT_BEE.offset028)
+#define BEE_CTR_NONCE0_W3		(IMXRT_BEE.offset02C)
+#define BEE_CTR_NONCE1_W0		(IMXRT_BEE.offset030)
+#define BEE_CTR_NONCE1_W1		(IMXRT_BEE.offset034)
+#define BEE_CTR_NONCE1_W2		(IMXRT_BEE.offset038)
+#define BEE_CTR_NONCE1_W3		(IMXRT_BEE.offset03C)
+#define BEE_REGION1_TOP			(IMXRT_BEE.offset040)
+#define BEE_REGION1_BOT			(IMXRT_BEE.offset044)
+#define BEE_CTRL_BEE_ENABLE			((uint32_t)(1 << 0))
+#define BEE_CTRL_CTRL_CLK_EN			((uint32_t)(1 << 1))
+#define BEE_CTRL_CTRL_SFTRST_N			((uint32_t)(1 << 2))
+#define BEE_CTRL_KEY_VALID			((uint32_t)(1 << 4))
+#define BEE_CTRL_KEY_REGION_SEL			((uint32_t)(1 << 5))
+#define BEE_CTRL_AC_PROT_EN			((uint32_t)(1 << 6))
+#define BEE_CTRL_LITTLE_ENDIAN			((uint32_t)(1 << 7))
+#define BEE_CTRL_SECURITY_LEVEL_R0(n)		((uint32_t)(((n) & 0x03) << 8))
+#define BEE_CTRL_CTRL_AES_MODE_R0(n)		((uint32_t)(((n) & 0x03) << 10))
+#define BEE_CTRL_SECURITY_LEVEL_R1(n)		((uint32_t)(((n) & 0x03) << 12))
+#define BEE_CTRL_CTRL_AES_MODE_R1(n)		((uint32_t)(((n) & 0x03) << 14))
+#define BEE_CTRL_BEE_ENABLE_LOCK		((uint32_t)(1 << 16))
+#define BEE_CTRL_CTRL_CLK_EN_LOCK		((uint32_t)(1 << 17))
+#define BEE_CTRL_CTRL_SFTRST_N_LOCK		((uint32_t)(1 << 18))
+#define BEE_CTRL_REGION1_ADDR_LOCK		((uint32_t)(1 << 19))
+#define BEE_CTRL_KEY_VALID_LOCK			((uint32_t)(1 << 20))
+#define BEE_CTRL_KEY_REGION_SEL_LOCK		((uint32_t)(1 << 21))
+#define BEE_CTRL_AC_PROT_EN_LOCK		((uint32_t)(1 << 22))
+#define BEE_CTRL_LITTLE_ENDIAN_LOCK		((uint32_t)(1 << 23))
+#define BEE_CTRL_SECURITY_LEVEL_R0_LOCK(n)	((uint32_t)(((n) & 0x03) << 24))
+#define BEE_CTRL_CTRL_AES_MODE_R0_LOCK		((uint32_t)(1 << 26))
+#define BEE_CTRL_REGION0_KEY_LOCK		((uint32_t)(1 << 27))
+#define BEE_CTRL_SECURITY_LEVEL_R1_LOCK(n)	((uint32_t)(((n) & 0x03) << 28))
+#define BEE_CTRL_CTRL_AES_MODE_R1_LOCK		((uint32_t)(1 << 30))
+#define BEE_CTRL_REGION1_KEY_LOCK		((uint32_t)(1 << 31))
+
+
+// DCP definitions adapted from NXP SDK 2.8.0, MIMXRT1062.h, lines 11448-13123
+#define IMXRT_DCP		(*(IMXRT_REGISTER32_t *)IMXRT_DCP_ADDRESS)
+// TODO - help wanted here....
 
 
 // 68.4: page 3406
@@ -9656,6 +9691,9 @@ These register are used by the ROM code and should not be used by application so
 #define SCB_SHPR2               (*(volatile uint32_t *)0xE000ED1C) // System Handler Priority 2
 #define SCB_SHPR3               (*(volatile uint32_t *)0xE000ED20) // System Handler Priority 3
 #define SCB_SHCSR               (*(volatile uint32_t *)0xE000ED24) // System Handler Control & State
+#define SCB_SHCSR_MEMFAULTENA		((uint32_t)(1<<16))
+#define SCB_SHCSR_BUSFAULTENA		((uint32_t)(1<<17))
+#define SCB_SHCSR_USGFAULTENA		((uint32_t)(1<<18))
 #define SCB_CFSR                (*(volatile uint32_t *)0xE000ED28) // Configurable Fault Status
 #define SCB_HFSR                (*(volatile uint32_t *)0xE000ED2C) // HardFault Status
 #define SCB_DFSR                (*(volatile uint32_t *)0xE000ED30) // Debug Fault Status
@@ -9785,6 +9823,24 @@ static inline void arm_dcache_flush(void *addr, uint32_t size)
 
 // Delete data from the cache, without touching memory
 //
+// WARNING: This function is DANGEROUS!!  The address must be
+// 32 byte aligned and the size must be a multiple of 32 bytes.
+//
+// DO NOT USE this function with arbitrarily aligned data,
+// especially pointers from malloc() or C++ new.  The ARM cache
+// can only delete with granularity of 32 byte cache rows.  If
+// you attempt to delete improperly aligned data, any other
+// cached variables shared within the same 32 byte cache row(s)
+// will become collateral damage!
+//
+// If you wish to assure some variable or array or other data
+// is not cached, use arm_dcache_flush_delete().  This
+// arm_dcache_delete() should only be used for very special
+// cases like DMA buffers or hardware testing & benchmarks.
+//
+// See this forum thread for more detail:
+// https://forum.pjrc.com/threads/68100-BUG-in-arm_dcache_delete
+//
 // Normally arm_dcache_delete() is used before receiving data via
 // DMA or from bus-master peripherals which write to memory.  You
 // want to delete anything the cache may have stored, so your next
@@ -9824,3 +9880,20 @@ static inline void arm_dcache_flush_delete(void *addr, uint32_t size)
 	asm("dsb");
 	asm("isb");
 }
+
+// Crash report info stored in the top 128 bytes of OCRAM (at 0x2027FF80)
+struct arm_fault_info_struct {
+	uint32_t len;  // all fields must be 32 bits
+	uint32_t ipsr;
+	uint32_t cfsr;
+	uint32_t hfsr;
+	uint32_t mmfar;
+	uint32_t bfar;
+	uint32_t ret;
+	uint32_t xpsr;
+	float  temp;
+	uint32_t time;
+	uint32_t crc;  // crc must be last
+};
+
+
