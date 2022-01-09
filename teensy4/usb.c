@@ -677,7 +677,32 @@ static void endpoint0_setup(uint64_t setupdata)
 		}
 		break;
 #endif
+#if defined(MTP_INTERFACE)
+	  case 0x6421: // Cancel Request, Still Image Class 1.0, 5.2.1, page 8
+		if (setup.wLength == 6) {
+			endpoint0_setupdata.bothwords = setupdata;
+			endpoint0_receive(endpoint0_buffer, setup.wLength, 1);
+			return;
+		}
+		break;
+	  case 0x65A1: // Get Extended Event Data, Still Image Class 1.0, 5.2.2, page 9
+		break;
+	  case 0x6621: // Device Reset, Still Image Class 1.0, 5.2.3 page 10
+		break;
+	  case 0x67A1: // Get Device Status, Still Image Class 1.0, 5.2.4, page 10
+		if (setup.wLength >= 4) {
+			endpoint0_buffer[0] = 4;
+			endpoint0_buffer[1] = 0;
+			endpoint0_buffer[2] = usb_mtp_status;
+			endpoint0_buffer[3] = 0x20;
+			endpoint0_transmit(endpoint0_buffer, 4, 0);
+			//if (usb_mtp_status == 0x19) usb_mtp_status = 0x01; // testing only
+			return;
+		}
+		break;
+#endif
 	}
+	printf("endpoint 0 stall\n");
 	USB1_ENDPTCTRL0 = 0x000010001; // stall
 }
 
@@ -823,6 +848,16 @@ static void endpoint0_complete(void)
 		usb_audio_set_feature(&endpoint0_setupdata, endpoint0_buffer);
 	}
 #endif
+#ifdef MTP_INTERFACE
+	if (setup.wRequestAndType == 0x6421) {
+		if (endpoint0_buffer[0] == 0x01 && endpoint0_buffer[1] == 0x40) {
+			printf("MTP cancel, transaction ID=%08X\n",
+			  endpoint0_buffer[2] | (endpoint0_buffer[3] << 8) |
+			  (endpoint0_buffer[4] << 16) | (endpoint0_buffer[5] << 24));
+			usb_mtp_status = 0x19; // 0x19 = host initiated cancel
+		}
+	}
+#endif
 }
 
 static void usb_endpoint_config(endpoint_t *qh, uint32_t config, void (*callback)(transfer_t *))
@@ -925,6 +960,10 @@ static void schedule_transfer(endpoint_t *endpoint, uint32_t epmask, transfer_t 
 		//USB1_USBCMD &= ~USB_USBCMD_ATDTW;
 		if (status & epmask) goto end;
 		//ret |= 0x02;
+		endpoint->next = (uint32_t)transfer;
+		endpoint->status = 0;
+		USB1_ENDPTPRIME |= epmask;
+		goto end;
 	}
 	//digitalWriteFast(4, HIGH);
 	endpoint->next = (uint32_t)transfer;
