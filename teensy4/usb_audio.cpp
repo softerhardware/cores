@@ -1016,7 +1016,7 @@ void AudioOutputUSB::begin(void)
 void AudioOutputUSB::update(void)
 {
 	audio_block_t *left, *right;
-	uint16_t i;
+	//uint16_t i;
 
 	// TODO: we shouldn't be writing to these......
 	//left = receiveReadOnly(0); // input 0 = left channel
