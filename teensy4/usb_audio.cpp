@@ -1077,7 +1077,7 @@ void AudioOutputUSB::update(void)
 unsigned int usb_audio_transmit_callback(void)
 {
 
-	uint32_t avail, num, target, offset, len=0;
+	uint32_t avail, num, target, len=0;
 	audio_block_t *left, *right;
 
 #ifdef USB_AUDIO_48KHZ
