@@ -489,7 +489,24 @@ ISR(USB_COM_vect)
 			return;
 		}
 		if (bRequest == CDC_SET_LINE_CODING /* 0x20 */ && bmRequestType == 0x21) {
-			usb_wait_receive_out();
+                        //
+                        // DL1YCF start:
+                        // I have seen cases where the interrupt "hangs" here, with RXOUTI
+                        // never coming up (on MacOS some software send a bunch of 
+                        // CSC_SET_LINE_CODING packets when closing the device)
+                        // So this is now changed such that after 50 frames/msec,
+                        // we gives up. This replaces usb_wait_receive_out. 
+                        // We (ab-)use the USB frame counter for timing purposes
+                        //
+                        uint8_t timeout=UDFNUML+50;
+                        while (1) {
+                          if (UEINTX & (1<<RXOUTI)) break;   // success
+                          if (UDFNUML == timeout) return;    // no success after 50 frames
+                        }
+			//usb_wait_receive_out();            // This is the original code
+                        //
+                        // DL1YCF end.
+                        //
 			p = cdc_line_coding;
 			for (i=0; i<7; i++) {
 				*p++ = UEDATX;
