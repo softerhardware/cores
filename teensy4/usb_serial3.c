@@ -105,6 +105,8 @@ void usb_serial3_configure(void)
 	usb_config_tx(CDC3_TX_ENDPOINT, tx_packet_size, 1, NULL);
 	for (i=0; i < RX_NUM; i++) rx_queue_transfer(i);
 	timer_config(usb_serial3_flush_callback, TRANSMIT_FLUSH_TIMEOUT);
+	// weak serialEventUSB2 will be NULL unless user's program defines serialEventUSB2()
+	if (serialEventUSB2) yield_active_check_flags |= YIELD_CHECK_USB_SERIALUSB2;
 }
 
 
@@ -213,7 +215,9 @@ int usb_serial3_peekchar(void)
 // number of bytes available in the receive buffer
 int usb_serial3_available(void)
 {
-	return rx_available;
+	uint32_t n = rx_available;
+	if (n == 0) yield();
+	return n;
 }
 
 // discard any buffered input
