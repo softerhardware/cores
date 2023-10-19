@@ -3,7 +3,7 @@
 // https://github.com/WG21-SG14/SG14/blob/master/SG14/inplace_function.h
 //
 // For use with Teensy, allow uninitialized to be no-operation without error
-#define SG14_INPLACE_FUNCTION_THROW(x)
+#define SG14_INPLACE_FUNCTION_THROW(x) return static_cast<R>(0)
 
 /*
  * Boost Software License - Version 1.0 - August 17th, 2003
@@ -40,7 +40,7 @@
 #define SG14_INPLACE_FUNCTION_THROW(x) throw (x)
 #endif
 
-namespace stdext {
+namespace teensy {
 
 namespace inplace_function_detail {
 
@@ -385,6 +385,6 @@ private:
     }
 };
 
-} // namespace stdext
+} // namespace teensy
 
 #undef SG14_INPLACE_FUNCTION_THROW
