@@ -37,6 +37,11 @@
 
 #endif
 
+//
+// This will nail the whole audio library to a sample rate
+// of 48k, and also (see below) reduce the size of the audio
+// blocks for a lower latency
+//
 #define USB_AUDIO_48KHZ 1
 
 
@@ -55,9 +60,9 @@
 
 #ifndef AUDIO_BLOCK_SAMPLES
 #ifdef USB_AUDIO_48KHZ
-#define AUDIO_BLOCK_SAMPLES  32
+#define AUDIO_BLOCK_SAMPLES  64     // 48k   Latency lower limit 1.3 msec
 #else
-#define AUDIO_BLOCK_SAMPLES  128
+#define AUDIO_BLOCK_SAMPLES  128    // 44.1k Latency lower limit 2.9 msec
 #endif
 #endif
 
