@@ -1,3 +1,33 @@
+/* Teensyduino Core Library
+ * http://www.pjrc.com/teensy/
+ * Copyright (c) 2019 PJRC.COM, LLC.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * 1. The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * 2. If the Software is incorporated into a build system that allows
+ * selection among a list of target devices, then similar target
+ * devices manufactured by PJRC.COM must be included in the list of
+ * target devices and selectable in the same manner.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 #include <stdint.h>
 
@@ -2139,6 +2169,9 @@ typedef struct {
 #define DMA_CINT_CINT(n)                ((uint8_t)((n) & 0x1F)) // Clear Interrupt Request
 #define DMA_CINT_CAIR                   ((uint8_t)1<<6)         // Clear All Interrupt Requests
 #define DMA_CINT_NOP                    ((uint8_t)1<<7)         // NOP
+#define DMA_DCHPRI_ECP			((uint8_t)1<<7)		// Enable Preemption
+#define DMA_DCHPRI_DPA			((uint8_t)1<<6)		// Disable Preempt Ability
+#define DMA_DCHPRI_CHPRI(n)		((uint8_t)((n) & 0x0F))
 
 // Normally these Transfer Control Descriptor (TCD) registers are accessed through
 // DMAChannel instances.  See DMAChannel.h for details.  Or refer to libraries which
@@ -8452,11 +8485,26 @@ typedef struct {
 #define I2S_RCR5_W0W(n)			((uint32_t)((n) & 0x1f)<<16)	// Word 0 Width
 #define I2S_RCR5_WNW(n)			((uint32_t)((n) & 0x1f)<<24)	// Word N Width
 #define I2S_RCR2_BCP			((uint32_t)1<<25)
-#define I2S_RCSR_RE			((uint32_t)0x80000000)	// Receiver Enable
-#define I2S_RCSR_FR			((uint32_t)0x02000000)	// FIFO Reset
-#define I2S_RCSR_FRDE			((uint32_t)0x00000001)	// FIFO Request DMA Enable
-#define I2S_RCSR_BCE			((uint32_t)0x10000000)	// Bit Clock Enable
+#define I2S_RCSR_RE			((uint32_t)(1<<31))	// Receiver Enable
+#define I2S_RCSR_STOPE			((uint32_t)(1<<30))	// Stop Enable
+#define I2S_RCSR_DBGE			((uint32_t)(1<<29))	// Debug Enable
+#define I2S_RCSR_BCE			((uint32_t)(1<<28))	// Bit Clock Enable
+#define I2S_RCSR_FR			((uint32_t)(1<<25))	// FIFO Reset
+#define I2S_RCSR_SR			((uint32_t)(1<<24))	// Software Reset
+#define I2S_RCSR_WSF			((uint32_t)(1<<20))	// Word Start Flag
+#define I2S_RCSR_SEF			((uint32_t)(1<<19))	// Sync Error Flag
+#define I2S_RCSR_FEF			((uint32_t)(1<<18))	// FIFO Error Flag
+#define I2S_RCSR_FWF			((uint32_t)(1<<17))	// FIFO Warning Flag
+#define I2S_RCSR_FRF			((uint32_t)(1<<16))	// FIFO Request Flag
+#define I2S_RCSR_WSIE			((uint32_t)(1<<12))	// Word Start Interrupt Enable
+#define I2S_RCSR_SEIE			((uint32_t)(1<<11))	// Sync Error Interrupt Enable
+#define I2S_RCSR_FEIE			((uint32_t)(1<<10))	// FIFO Error Interrupt Enable
+#define I2S_RCSR_FWIE			((uint32_t)(1<<9))	// FIFO Warning Interrupt Enable
+#define I2S_RCSR_FRIE			((uint32_t)(1<<8))	// FIFO Request Interrupt Enable
+#define I2S_RCSR_FWDE			((uint32_t)(1<<1))	// FIFO Warning DMA Enable
+#define I2S_RCSR_FRDE			((uint32_t)(1<<0))	// FIFO Request DMA Enable
 #define I2S_TCR1_RFW(n)			((uint32_t)(n) & 0x1f)	// Receive FIFO watermark
+#define I2S_TCR1_TFW(n)			((uint32_t)(n) & 0x1f)	// Transmit FIFO watermark
 #define I2S_TCR2_DIV(n)			((uint32_t)(n) & 0xff)	// Bit clock divide by (DIV+1)*2
 #define I2S_TCR2_BCD			((uint32_t)1<<24)	// Bit clock direction
 #define I2S_TCR2_MSEL(n)		((uint32_t)((n) & 3)<<26)	// MCLK select, 0=bus clock, 1=I2S0_MCLK
@@ -8476,10 +8524,24 @@ typedef struct {
 #define I2S_TCR5_W0W(n)			((uint32_t)((n) & 0x1f)<<16)	// Word 0 Width
 #define I2S_TCR5_WNW(n)			((uint32_t)((n) & 0x1f)<<24)	// Word N Width
 #define I2S_TCR2_BCP			((uint32_t)1<<25)
-#define I2S_TCSR_TE			((uint32_t)0x80000000)		// Receiver Enable
-#define I2S_TCSR_BCE			((uint32_t)0x10000000)	// Bit Clock Enable
-#define I2S_TCSR_FR			((uint32_t)0x02000000)	// FIFO Reset
-#define I2S_TCSR_FRDE			((uint32_t)0x00000001)	// FIFO Request DMA Enable
+#define I2S_TCSR_TE			((uint32_t)(1<<31))	// Transmitter Enable
+#define I2S_TCSR_STOPE			((uint32_t)(1<<30))	// Stop Enable
+#define I2S_TCSR_DBGE			((uint32_t)(1<<29))	// Debug Enable
+#define I2S_TCSR_BCE			((uint32_t)(1<<28))	// Bit Clock Enable
+#define I2S_TCSR_FR			((uint32_t)(1<<25))	// FIFO Reset
+#define I2S_TCSR_SR			((uint32_t)(1<<24))	// Software Reset
+#define I2S_TCSR_WSF			((uint32_t)(1<<20))	// Word Start Flag
+#define I2S_TCSR_SEF			((uint32_t)(1<<19))	// Sync Error Flag
+#define I2S_TCSR_FEF			((uint32_t)(1<<18))	// FIFO Error Flag
+#define I2S_TCSR_FWF			((uint32_t)(1<<17))	// FIFO Warning Flag
+#define I2S_TCSR_FRF			((uint32_t)(1<<16))	// FIFO Request Flag
+#define I2S_TCSR_WSIE			((uint32_t)(1<<12))	// Word Start Interrupt Enable
+#define I2S_TCSR_SEIE			((uint32_t)(1<<11))	// Sync Error Interrupt Enable
+#define I2S_TCSR_FEIE			((uint32_t)(1<<10))	// FIFO Error Interrupt Enable
+#define I2S_TCSR_FWIE			((uint32_t)(1<<9))	// FIFO Warning Interrupt Enable
+#define I2S_TCSR_FRIE			((uint32_t)(1<<8))	// FIFO Request Interrupt Enable
+#define I2S_TCSR_FWDE			((uint32_t)(1<<1))	// FIFO Warning DMA Enable
+#define I2S_TCSR_FRDE			((uint32_t)(1<<0))	// FIFO Request DMA Enable
 
 
 

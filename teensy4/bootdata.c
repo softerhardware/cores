@@ -1,3 +1,33 @@
+/* Teensyduino Core Library
+ * http://www.pjrc.com/teensy/
+ * Copyright (c) 2019 PJRC.COM, LLC.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * 1. The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * 2. If the Software is incorporated into a build system that allows
+ * selection among a list of target devices, then similar target
+ * devices manufactured by PJRC.COM must be included in the list of
+ * target devices and selectable in the same manner.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 //#include "imxrt.h"
 
 #include <stdint.h>
@@ -34,12 +64,12 @@ const uint32_t ImageVectorTable[8] = {
 
 __attribute__ ((section(".flashconfig"), used))
 uint32_t FlexSPI_NOR_Config[128] = {
-	// 448 byte common FlexSPI configuration block, 8.6.3.1 page 223 (RT1060 rev 0)
+	// 448 byte common FlexSPI configuration block, 9.6.3.1 page 222 (RT1060 rev 3)
 	// MCU_Flashloader_Reference_Manual.pdf, 8.2.1, Table 8-2, page 72-75
 	0x42464346,		// Tag				0x00
 	0x56010000,		// Version
 	0,			// reserved
-	0x00030301,		// columnAdressWidth,dataSetupTime,dataHoldTime,readSampleClkSrc
+	0x00020101,		// columnAdressWidth,dataSetupTime,dataHoldTime,readSampleClkSrc
 
 	0x00000000,		// waitTimeCfgCommands,-,deviceModeCfgEnable
 	0,			// deviceModeSeq
@@ -57,7 +87,7 @@ uint32_t FlexSPI_NOR_Config[128] = {
 	0,
 
 	0x00000000,		// controllerMiscOption		0x40
-	0x00080401,		// lutCustomSeqEnable,serialClkFreq,sflashPadType,deviceType
+	0x01060401,		// lutCustomSeqEnable,serialClkFreq,sflashPadType,deviceType
 	0,			// reserved
 	0,			// reserved
 
@@ -84,12 +114,12 @@ uint32_t FlexSPI_NOR_Config[128] = {
 	0,			// dataValidTime
 	0x00000000,		// busyBitPolarity,busyOffset
 
-	0x0A1804EB,		// lookupTable[0]		0x80
-	0x26043206,		// lookupTable[1]
-	0,			// lookupTable[2]
+	0x0A1804EB,		// lookupTable[0]  CMD_SDR(0xEB,pins1) RADDR_SDR(24,pins4)
+	0x32041EFF,		// lookupTable[1]  MODE8_SDR(0xFF,pins4) DUMMY_SDR(4,pins4)
+	0x00002601,		// lookupTable[2]  READ_SDR(1,pins4)
 	0,			// lookupTable[3]
 
-	0x24040405,		// lookupTable[4]		0x90
+	0,			// lookupTable[4]		0x90
 	0,			// lookupTable[5]
 	0,			// lookupTable[6]
 	0,			// lookupTable[7]
@@ -99,7 +129,7 @@ uint32_t FlexSPI_NOR_Config[128] = {
 	0,			// lookupTable[10]
 	0,			// lookupTable[11]
 
-	0x00000406,		// lookupTable[12]		0xB0
+	0,			// lookupTable[12]		0xB0
 	0,			// lookupTable[13]
 	0,			// lookupTable[14]
 	0,			// lookupTable[15]
@@ -109,7 +139,7 @@ uint32_t FlexSPI_NOR_Config[128] = {
 	0,			// lookupTable[18]
 	0,			// lookupTable[19]
 
-	0x08180420,		// lookupTable[20]		0xD0
+	0,			// lookupTable[20]		0xD0
 	0,			// lookupTable[21]
 	0,			// lookupTable[22]
 	0,			// lookupTable[23]
@@ -124,13 +154,13 @@ uint32_t FlexSPI_NOR_Config[128] = {
 	0,			// lookupTable[30]
 	0,			// lookupTable[31]
 
-	0x081804D8,		// lookupTable[32]		0x100
+	0,			// lookupTable[32]		0x100
 	0,			// lookupTable[33]
 	0,			// lookupTable[34]
 	0,			// lookupTable[35]
 
-	0x08180402,		// lookupTable[36]		0x110
-	0x00002004,		// lookupTable[37]
+	0,			// lookupTable[36]		0x110
+	0,			// lookupTable[37]
 	0,			// lookupTable[38]
 	0,			// lookupTable[39]
 
@@ -139,7 +169,7 @@ uint32_t FlexSPI_NOR_Config[128] = {
 	0,			// lookupTable[42]
 	0,			// lookupTable[43]
 
-	0x00000460,		// lookupTable[44]		0x130
+	0,			// lookupTable[44]		0x130
 	0,			// lookupTable[45]
 	0,			// lookupTable[46]
 	0,			// lookupTable[47]

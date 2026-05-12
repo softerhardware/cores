@@ -228,7 +228,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define SEREMU_RX_INTERVAL    2	// TODO: is this ok for 480 Mbit speed
   #define KEYBOARD_INTERFACE    0	// Keyboard
   #define KEYBOARD_ENDPOINT     3
-  #define KEYBOARD_SIZE         8
+  #define KEYBOARD_SIZE         8	// 8 = normal boot protocol, 16 = NKRO
   #define KEYBOARD_INTERVAL     1	// TODO: is this ok for 480 Mbit speed
   #define KEYMEDIA_INTERFACE    2	// Keyboard Media Keys
   #define KEYMEDIA_ENDPOINT     4
@@ -258,7 +258,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define SEREMU_RX_INTERVAL    2
   #define KEYBOARD_INTERFACE    0	// Keyboard
   #define KEYBOARD_ENDPOINT     3
-  #define KEYBOARD_SIZE         8
+  #define KEYBOARD_SIZE         8	// 8 = normal boot protocol, 16 = NKRO
   #define KEYBOARD_INTERVAL     1
   #define KEYMEDIA_INTERFACE    4	// Keyboard Media Keys
   #define KEYMEDIA_ENDPOINT     4
@@ -304,7 +304,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define CDC_TX_SIZE_12        64
   #define KEYBOARD_INTERFACE    2	// Keyboard
   #define KEYBOARD_ENDPOINT     4
-  #define KEYBOARD_SIZE         8
+  #define KEYBOARD_SIZE         8	// 8 = normal boot protocol, 16 = NKRO
   #define KEYBOARD_INTERVAL     1
   #define KEYMEDIA_INTERFACE    5	// Keyboard Media Keys
   #define KEYMEDIA_ENDPOINT     5
@@ -344,7 +344,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define SEREMU_RX_INTERVAL    2
   #define KEYBOARD_INTERFACE    0	// Keyboard
   #define KEYBOARD_ENDPOINT     3
-  #define KEYBOARD_SIZE         8
+  #define KEYBOARD_SIZE         8	// 8 = normal boot protocol, 16 = NKRO
   #define KEYBOARD_INTERVAL     1
   #define KEYMEDIA_INTERFACE    2	// Keyboard Media Keys
   #define KEYMEDIA_ENDPOINT     4
@@ -378,7 +378,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define SEREMU_RX_INTERVAL    2
   #define KEYBOARD_INTERFACE    0	// Keyboard
   #define KEYBOARD_ENDPOINT     3
-  #define KEYBOARD_SIZE         8
+  #define KEYBOARD_SIZE         8	// 8 = normal boot protocol, 16 = NKRO
   #define KEYBOARD_INTERVAL     1
   #define KEYMEDIA_INTERFACE    3	// Keyboard Media Keys
   #define KEYMEDIA_ENDPOINT     4
@@ -901,7 +901,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define MIDI_RX_SIZE          64
   #define KEYBOARD_INTERFACE    3	// Keyboard
   #define KEYBOARD_ENDPOINT     4
-  #define KEYBOARD_SIZE         8
+  #define KEYBOARD_SIZE         8	// 8 = normal boot protocol, 16 = NKRO
   #define KEYBOARD_INTERVAL     1
   #define MOUSE_INTERFACE       4	// Mouse
   #define MOUSE_ENDPOINT        5
