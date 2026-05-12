@@ -206,7 +206,7 @@ static uint8_t keyboard_report_desc[] = {
         0x29, 0x7F,                     //   Usage Maximum (104),
         0x81, 0x00,                     //   Input (Data, Array),       ;Normal keys
 #elif KEYBOARD_SIZE == 16
-	0x95, 0x78,			//   Report Count (120),
+	    0x95, 0x78,                     //   Report Count (120),
         0x75, 0x01,                     //   Report Size (1),
         0x19, 0x00,                     //   Usage Minimum (0),
         0x29, 0xE7,                     //   Usage Maximum (119),
@@ -1457,7 +1457,11 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	//0x03, 0x06,				// wTerminalType, 0x0603 = Line Connector
 	0x02, 0x06,				// wTerminalType, 0x0602 = Digital Audio
 	0,					// bAssocTerminal, 0 = unidirectional
+#ifdef USB_AUDIO_MONO
+	1,					// bNrChannels
+#else
 	2,					// bNrChannels
+#endif
 	0x03, 0x00,				// wChannelConfig, 0x0003 = Left & Right Front
 	0,					// iChannelNames
 	0, 					// iTerminal
@@ -1479,7 +1483,11 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	3,					// bTerminalID
 	0x01, 0x01,				// wTerminalType, 0x0101 = USB_STREAMING
 	0,					// bAssocTerminal, 0 = unidirectional
+#ifdef USB_AUDIO_MONO
+	1,					// bNrChannels
+#else
 	2,					// bNrChannels
+#endif
 	0x03, 0x00,				// wChannelConfig, 0x0003 = Left & Right Front
 	0,					// iChannelNames
 	0, 					// iTerminal
@@ -1541,7 +1549,11 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	0x24,					// bDescriptorType = CS_INTERFACE
 	2,					// bDescriptorSubtype = FORMAT_TYPE
 	1,					// bFormatType = FORMAT_TYPE_I
+#ifdef USB_AUDIO_MONO
+	1,					// bNrChannels = 1
+#else
 	2,					// bNrChannels = 2
+#endif
 	2,					// bSubFrameSize = 2 byte
 	16,					// bBitResolution = 16 bits
 	1,					// bSamFreqType = 1 frequency
@@ -1604,7 +1616,11 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	0x24,					// bDescriptorType = CS_INTERFACE
 	2,					// bDescriptorSubtype = FORMAT_TYPE
 	1,					// bFormatType = FORMAT_TYPE_I
+#ifdef USB_AUDIO_MONO
+	1,					// bNrChannels = 1
+#else
 	2,					// bNrChannels = 2
+#endif
 	2,					// bSubFrameSize = 2 byte
 	16,					// bBitResolution = 16 bits
 	1,					// bSamFreqType = 1 frequency
@@ -2480,7 +2496,11 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
 	//0x03, 0x06,				// wTerminalType, 0x0603 = Line Connector
 	0x02, 0x06,				// wTerminalType, 0x0602 = Digital Audio
 	0,					// bAssocTerminal, 0 = unidirectional
+#ifdef USB_AUDIO_MONO
+	1,					// bNrChannels
+#else
 	2,					// bNrChannels
+#endif
 	0x03, 0x00,				// wChannelConfig, 0x0003 = Left & Right Front
 	0,					// iChannelNames
 	0, 					// iTerminal
@@ -2502,7 +2522,11 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
 	3,					// bTerminalID
 	0x01, 0x01,				// wTerminalType, 0x0101 = USB_STREAMING
 	0,					// bAssocTerminal, 0 = unidirectional
+#ifdef USB_AUDIO_MONO
+	1,					// bNrChannels
+#else
 	2,					// bNrChannels
+#endif
 	0x03, 0x00,				// wChannelConfig, 0x0003 = Left & Right Front
 	0,					// iChannelNames
 	0, 					// iTerminal
@@ -2564,11 +2588,19 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
 	0x24,					// bDescriptorType = CS_INTERFACE
 	2,					// bDescriptorSubtype = FORMAT_TYPE
 	1,					// bFormatType = FORMAT_TYPE_I
+#ifdef USB_AUDIO_MONO
+	1,					// bNrChannels = 1
+#else
 	2,					// bNrChannels = 2
+#endif
 	2,					// bSubFrameSize = 2 byte
 	16,					// bBitResolution = 16 bits
 	1,					// bSamFreqType = 1 frequency
-	LSB(44100), MSB(44100), 0,		// tSamFreq
+#ifdef USB_AUDIO_48KHZ          
+     LSB(48000), MSB(48000), 0,
+#else
+     LSB(44100), MSB(44100), 0,      // tSamFreq 
+#endif                  
 	// Standard AS Isochronous Audio Data Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.1.1, Table 4-20, page 61-62
 	9, 					// bLength
@@ -2623,7 +2655,11 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
 	0x24,					// bDescriptorType = CS_INTERFACE
 	2,					// bDescriptorSubtype = FORMAT_TYPE
 	1,					// bFormatType = FORMAT_TYPE_I
+#ifdef USB_AUDIO_MONO
+	1,					// bNrChannels = 1
+#else
 	2,					// bNrChannels = 2
+#endif
 	2,					// bSubFrameSize = 2 byte
 	16,					// bBitResolution = 16 bits
 	1,					// bSamFreqType = 1 frequency
