@@ -84,9 +84,19 @@ static void sync_event(transfer_t *t)
 	usb_transmit(AUDIO_SYNC_ENDPOINT, &sync_transfer);
 }
 
+#ifdef USB_AUDIO_MONO
+static void copy_to_buffers(const int16_t *src, int16_t *left, int16_t *right, unsigned int len)
+{
+    // TODO: optimize using 32-bit transfers as much as possible
+    while (len > 0) {
+      *left++ = *right++ = *src++;
+      len--;
+	}
+}
+#else
 static void copy_to_buffers(const uint32_t *src, int16_t *left, int16_t *right, unsigned int len)
 {
-	uint32_t *target = (uint32_t*) src + len; 
+	uint32_t *target = (uint32_t*) src + len;
 	while ((src < target) && (((uintptr_t) left & 0x02) != 0)) {
 		uint32_t n = *src++;
 		*left++ = n & 0xFFFF;
@@ -108,6 +118,7 @@ static void copy_to_buffers(const uint32_t *src, int16_t *left, int16_t *right, 
 		*right++ = n >> 16;
 	}
 }
+#endif
 
 //
 // For very small audio block sizes, the original code cannot work
@@ -172,7 +183,7 @@ void usb_audio_configure(void)
 	}
 
 	// Microsoft windows still expects 10.14 when UAC1 even at high speed
-	// Linux accepts this too
+	// Linux accepts this too -- BUT NOT APPLE M2 MACs !
 	//if (usb_high_speed) {
 	//	usb_audio_sync_nbytes = 4;
 	//	usb_audio_sync_rshift = 8;
@@ -210,11 +221,15 @@ void usb_audio_receive_callback(unsigned int len)
 {
 	static audio_block_t *left = NULL;
 	static audio_block_t *right = NULL;
-	const uint32_t *data;
 	uint16_t avail;
 
+#ifdef USB_AUDIO_MONO
+	const int16_t *data = (const int16_t *)rx_buffer;
+	len >>= 1; // 1 sample = 2 bytes
+#else
+	const uint32_t *data = (const uint32_t *)rx_buffer;
 	len >>= 2; // 1 sample = 4 bytes: 2 left, 2 right
-	data = (const uint32_t *)rx_buffer;
+#endif
 
 	if (left == NULL) {
 		left = AudioStream::allocate();
@@ -256,7 +271,7 @@ void usb_audio_receive_callback(unsigned int len)
 					usb_audio_overrun_count++;
 					//usb_audio_samples_consumed -= uint64_t(usb_audio_samples_consumed >> 25);
 
-				} 
+				}
 				//else {
 					// Exactly enough space so near overrun
 				//	usb_audio_near_overrun_count++;
@@ -396,7 +411,7 @@ void AudioInputUSB::update(void)
 	if (!left || !right) {
 		usb_audio_underrun_count++;
 		// Don't adjust samples here as when there is no audio for host there will be underruns
-	} 
+	}
 	//else if (next_read_index == local_write_index) {
 	//	// Next buffers are being filled, check incoming count
 	//	if (local_write_count <= USB_AUDIO_GUARD_RAIL) {
@@ -510,8 +525,13 @@ void usb_audio_receive_callback(unsigned int len)
 	const uint32_t *data;
 	uint16_t avail;
 
+#ifdef USB_AUDIO_MONO
+	len >>= 1; // 1 sample = 2 bytes
+	const int16_t *data = (const int16t *)rx_buffer;
+#else
 	len >>= 2; // 1 sample = 4 bytes: 2 left, 2 right
-	data = (const uint32_t *)rx_buffer;
+	const uint32_t *data = (const uint32_t *)rx_buffer;
+#endif
 
 		speed_counter += len;      // DL1YCF: counts *all* incoming samples
 		time_last_rx = micros();   //         time of last RX callback
@@ -669,9 +689,9 @@ void AudioInputUSB::update(void)
 
 		static uint16_t min_buf=9999;
 		static uint16_t max_buf=0;
-	 
+
 		if (input_active == 0) {
-		  // print "sanitized" values. These have no effect further down 
+		  // print "sanitized" values. These have no effect further down
 		  // if input_active is FALSE
 		  local_speed = 0;
 		  local_buf_cnt = 999;
@@ -802,11 +822,16 @@ void usb_audio_receive_callback(unsigned int len)
 {
 	unsigned int count, avail;
 	audio_block_t *left, *right;
-	const uint32_t *data;
 
 	AudioInputUSB::receive_flag = 1;
+
+#ifdef USB_AUDIO_MONO
+	len >>= 1; // 1 sample = 2 bytes
+	const int16_t *data = (const int16_t *)rx_buffer;
+#else
 	len >>= 2; // 1 sample = 4 bytes: 2 left, 2 right
-	data = (const uint32_t *)rx_buffer;
+	const uint32_t *data = (const uint32_t *)rx_buffer;
+#endif
 
 	count = AudioInputUSB::incoming_count;
 	left = AudioInputUSB::incoming_left;
@@ -909,7 +934,7 @@ void AudioInputUSB::update(void)
 		Serial.print("ORIG: Corr= ");
 		Serial.print(feedback_accumulator*0.00005960464477539063);
 		Serial.print(" Min= ");
-		Serial.print(min_buf); 
+		Serial.print(min_buf);
 		Serial.print(" Max= ");
 		Serial.print(max_buf);
 		Serial.print(" O");
@@ -977,6 +1002,16 @@ static void tx_event(transfer_t *t)
 	usb_transmit(AUDIO_TX_ENDPOINT, &tx_transfer);
 }
 
+#ifdef USB_AUDIO_MONO
+static void copy_from_buffers(int16_t *dst, int16_t *left, int16_t *right, unsigned int len)
+{
+    // TODO: optimize using 32-bit transfers as much as possible
+	while (len > 0) {
+		*dst++ = *left++;
+		len--;
+	}
+}
+#else
 static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsigned int len)
 {
 	// TODO: optimize...
@@ -985,6 +1020,7 @@ static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsi
 		len--;
 	}
 }
+#endif
 
 bool AudioOutputUSB::update_responsibility;
 
@@ -1138,7 +1174,11 @@ unsigned int usb_audio_transmit_callback(void)
 
 		if (left == NULL || right == NULL) {
 			// buffer underrun - PC is consuming too quickly
-			memset(usb_audio_transmit_buffer + len, 0, num * 4);
+#ifdef USB_AUDIO_MONO
+			memset((int16_t *)usb_audio_transmit_buffer + len, 0, num * 2);
+#else
+			memset((uint32_t *)usb_audio_transmit_buffer + len, 0, num * 4);
+#endif
 			out_read_count = 0;
 			usb_audio_out_underrun_count++;
 			break;
@@ -1147,8 +1187,13 @@ unsigned int usb_audio_transmit_callback(void)
 		avail = AUDIO_BLOCK_SAMPLES - out_read_count;
 		if (num > avail) num = avail;
 
+#ifdef USB_AUDIO_MONO
+		copy_from_buffers((int16_t *)usb_audio_transmit_buffer + len,
+			left->data + out_read_count, right->data + out_read_count, num);
+#else
 		copy_from_buffers((uint32_t *)usb_audio_transmit_buffer + len,
 			left->data + out_read_count, right->data + out_read_count, num);
+#endif
 		len += num;
 		out_read_count += num;
 		out_buffer_counter -= num;
@@ -1272,7 +1317,11 @@ unsigned int usb_audio_transmit_callback(void)
 		left = AudioOutputUSB::left_1st;
 		if (left == NULL) {
 			// buffer underrun - PC is consuming too quickly
-			memset(usb_audio_transmit_buffer + len, 0, num * 4);
+#ifdef USB_AUDIO_MONO
+			memset((int16_t *)usb_audio_transmit_buffer + len, 0, num * 2);
+#else
+			memset((uint32_t *)usb_audio_transmit_buffer + len, 0, num * 4);
+#endif
 			//serial_print("%");
 			break;
 		}
@@ -1282,8 +1331,13 @@ unsigned int usb_audio_transmit_callback(void)
 		avail = AUDIO_BLOCK_SAMPLES - offset;
 		if (num > avail) num = avail;
 
+#ifdef USB_AUDIO_MONO
+		copy_from_buffers((int16_t *)usb_audio_transmit_buffer + len,
+			left->data + offset, right->data + offset, num);
+#else
 		copy_from_buffers((uint32_t *)usb_audio_transmit_buffer + len,
 			left->data + offset, right->data + offset, num);
+#endif
 		len += num;
 		offset += num;
 		if (offset >= AUDIO_BLOCK_SAMPLES) {
@@ -1367,7 +1421,7 @@ int usb_audio_get_feature(void *stp, uint8_t *data, uint32_t *datalen)
 	return 0;
 }
 
-int usb_audio_set_feature(void *stp, uint8_t *buf) 
+int usb_audio_set_feature(void *stp, uint8_t *buf)
 {
 	struct setup_struct setup = *((struct setup_struct *)stp);
 	if (setup.bmRequestType==0x21) { // should check bRequest, bChannel and UnitID
